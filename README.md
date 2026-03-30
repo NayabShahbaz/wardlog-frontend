@@ -1,70 +1,90 @@
-# Getting Started with Create React App
+# WardLog Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A clean hospital ward management frontend built with **React**, **TypeScript**, and **Vite**. This project currently includes a login screen and a doctor dashboard UI for viewing patient summaries, tasks, notices, and clinical notes.
 
-## Available Scripts
+## ✨ Features
 
-In the project directory, you can run:
+- **Login page** for staff access
+- **Doctor dashboard** with quick ward insights
+- **Patient overview** and recent clinical notes panels
+- **Tasks** and **noticeboard** sections
+- **Responsive UI** with reusable layout and card components
+- **Client-side routing** using `react-router-dom`
 
-### `npm start`
+## 🛠️ Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **React 19**
+- **TypeScript**
+- **Vite**
+- **React Router DOM**
+- **React Icons**
+- **Tailwind CSS 4**
+- **ESLint**
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 📁 Project Structure
 
-### `npm test`
+```text
+wardlog-frontend/
+├── public/
+├── src/
+│   ├── components/
+│   │   ├── Doctor/
+│   │   │   └── DoctorsDashboard.tsx
+│   │   ├── layout/
+│   │   └── ui/
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+├── package.json
+└── vite.config.ts
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 Getting Started
 
-### `npm run build`
+### 1. Install dependencies
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+npm install
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 2. Start the development server
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+npm run dev
+```
 
-### `npm run eject`
+The app will usually be available at:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```text
+http://localhost:5173
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 📜 Available Scripts
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+| Command           | Description                          |
+| ----------------- | ------------------------------------ |
+| `npm run dev`     | Start the Vite development server    |
+| `npm run build`   | Build the project for production     |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint`    | Run ESLint checks                    |
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 🧭 Current Routes
 
-## Learn More
+- `/login` — login page
+- `/doctor/dashboard` — doctor dashboard
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 📌 Current Status
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+This is currently a **frontend prototype/UI project** with static sample data. Backend integration, authentication, and live hospital workflow features can be added later.
 
-### Code Splitting
+## 🔮 Possible Next Improvements
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- Connect to a real backend/API
+- Add authentication and protected routes
+- Manage patient/task data dynamically
+- Add role-based dashboards for doctors, nurses, and admins
+- Improve testing coverage
 
-### Analyzing the Bundle Size
+## 📄 License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This project is for educational/internal development use unless otherwise specified.
