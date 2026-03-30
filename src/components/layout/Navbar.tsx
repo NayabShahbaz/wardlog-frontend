@@ -39,7 +39,7 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Nav Items - desktop only, evenly spaced */}
-        <div className="hidden lg:flex flex-1 items-center justify-evenly">
+        <div className="hidden lg:flex flex-1 items-center justify-center gap-1.5">
           {items.map((item) => (
             <button
               key={item.label}
