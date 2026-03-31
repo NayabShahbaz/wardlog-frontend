@@ -5,3 +5,10 @@
   outline: none;
   border-color: transparent;
 }
+
+input,
+select {
+  border-color: #d1d5db;
+}
+
+/*import custom styles/classes components here like here*/

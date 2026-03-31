@@ -1,16 +1,10 @@
-import { useNavigate } from "react-router-dom";
 import {
   HiOutlineClipboardDocument,
   HiOutlineBell,
   HiOutlineCheckCircle,
   HiOutlineUsers,
-  HiOutlineCalendarDays,
   HiOutlineDocumentText,
-  HiOutlineClipboard,
-  HiOutlineUserGroup,
 } from "react-icons/hi2";
-
-import { PageLayout } from "../layout";
 import {
   StatCard,
   SectionCard,
@@ -19,17 +13,6 @@ import {
   EmptyState,
   WelcomeHeader,
 } from "../ui";
-
-const navItems = [
-  { label: "Dashboard", icon: HiOutlineClipboard, active: true },
-  { label: "Patients", icon: HiOutlineUsers },
-  { label: "Clinical Docs", icon: HiOutlineDocumentText },
-  { label: "Ward Coordination", icon: HiOutlineCalendarDays },
-  { label: "NoticeBoard", icon: HiOutlineBell },
-  { label: "Tasks", icon: HiOutlineCheckCircle },
-  { label: "Roster", icon: HiOutlineCalendarDays },
-  { label: "Staff Directory", icon: HiOutlineUserGroup },
-];
 
 const statCards = [
   {
@@ -94,15 +77,8 @@ const clinicalNotes = [
 ];
 
 const DoctorDashboard = () => {
-  const navigate = useNavigate();
-
   return (
-    <PageLayout
-      navItems={navItems}
-      userName="Dr. Sarah Johnson"
-      userRole="Doctor"
-      onLogout={() => navigate("/login")}
-    >
+    <>
       <WelcomeHeader
         name="Dr. Sarah Johnson"
         department="General Medicine"
@@ -173,7 +149,7 @@ const DoctorDashboard = () => {
           </div>
         </SectionCard>
       </div>
-    </PageLayout>
+    </>
   );
 };
 
