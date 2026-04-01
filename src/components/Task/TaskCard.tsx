@@ -1,5 +1,6 @@
 import React from "react";
 import { Badge } from "../ui";
+import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 export interface Task {
   id: string;
@@ -11,7 +12,6 @@ export interface Task {
   status: "pending" | "in-progress" | "completed";
 }
 
-// Strictly align with Badge.tsx variants
 type BadgeVariant =
   | "red"
   | "green"
@@ -28,12 +28,20 @@ const priorityMap: Record<Task["priority"], BadgeVariant> = {
 };
 
 const statusMap: Record<Task["status"], BadgeVariant> = {
-  pending: "orange",
-  "in-progress": "blue",
-  completed: "green", // Maps to your brand blue #1a5276
+  pending: "outline",
+  "in-progress": "dark",
+  completed: "green",
 };
 
-const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
+interface TaskCardProps {
+  task: Task;
+  onComplete?: (id: string) => void;
+  isOwnTask?: boolean;
+}
+
+const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, isOwnTask }) => {
+  const canComplete = isOwnTask && task.status !== "completed" && onComplete;
+
   return (
     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all">
       <div className="flex justify-between items-start mb-2">
@@ -52,9 +60,25 @@ const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
       </div>
 
       <div className="flex justify-between items-center border-t border-gray-50 pt-4 mt-2">
-        {/* Uses the blue-outlined style defined in your Badge component */}
-        <Badge text={task.type} variant="outline" />
-        <Badge text={task.status} variant={statusMap[task.status]} />
+        <div className="flex items-center gap-2">
+          <Badge text={task.type} variant="outline" />
+          <Badge text={task.status} variant={statusMap[task.status]} />
+        </div>
+
+        {canComplete && (
+          <button
+            onClick={() => onComplete(task.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+            style={{
+              borderWidth: "1px",
+              borderStyle: "solid",
+              borderColor: "#bbf7d0",
+            }}
+          >
+            <HiOutlineCheckCircle className="w-4 h-4" />
+            Mark Complete
+          </button>
+        )}
       </div>
     </div>
   );

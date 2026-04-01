@@ -11,20 +11,19 @@ import {
   HiOutlineUsers,
 } from "react-icons/hi2";
 
-interface PageLayoutProps extends PropsWithChildren {
+interface DoctorLayoutProps extends PropsWithChildren {
   userName?: string;
   userRole?: string;
 }
 
-const PageLayout = ({
+const DoctorLayout = ({
   userName = "Dr. Sarah Johnson",
   userRole = "Doctor",
   children,
-}: PageLayoutProps) => {
+}: DoctorLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // UNIVERSAL NAVIGATION CONFIG
   const defaultNavItems: NavItem[] = [
     { label: "Dashboard", icon: HiOutlineClipboard, path: "/doctor/dashboard" },
     { label: "Patients", icon: HiOutlineUsers, path: "/doctor/patients" },
@@ -44,11 +43,10 @@ const PageLayout = ({
     {
       label: "Staff Directory",
       icon: HiOutlineUserGroup,
-      path: "/doctor/directory",
+      path: "/doctor/staff-directory",
     },
   ].map((item) => ({
     ...item,
-    // Active if current path starts with item path
     active: location.pathname.startsWith(item.path),
     onClick: () => navigate(item.path),
   }));
@@ -63,11 +61,10 @@ const PageLayout = ({
       />
 
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
-        {/* If children exist (wrapping style), use them. Otherwise use Outlet (routing style) */}
         {children ?? <Outlet />}
       </main>
     </div>
   );
 };
 
-export default PageLayout;
+export default DoctorLayout;

@@ -2,19 +2,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   HiOutlinePencilSquare,
-  HiOutlineTrash,
-  HiOutlinePlus,
   HiOutlineEye,
+  HiOutlineArrowRightOnRectangle,
+  HiOutlineCheckCircle,
 } from "react-icons/hi2";
 
-import { Badge } from "../ui";
-import { SearchBar } from "../ui";
-import { DataTable } from "../ui";
-import AddPatientModal from "./AddPatientModal";
-import UpdatePatientModal from "./UpdatePatientModal";
-import { type PatientFormData } from "./PatientForm";
+import {
+  Badge,
+  SearchBar,
+  DataTable,
+  Modal,
+  InputField,
+  SelectField,
+} from "../ui";
+import Tabs from "../ui/Tabs";
 import type { Column } from "../ui/DataTable";
 
+// ── Types ───────────────────────────────────────────────────────────
 interface Patient {
   mrn: string;
   name: string;
@@ -30,7 +34,24 @@ interface Patient {
   address: string;
   ward: string;
   bedNumber: string;
+  assignedDoctor: string;
+  assignedNurse: string;
+  admissionDate: string;
+  patientType: "inpatient" | "outpatient";
+  appointmentDate?: string;
 }
+
+const currentDoctor = "Dr. Sarah Johnson";
+const currentWard = "Ward A";
+
+const teamNurses = [
+  { label: "Emily Chen (Nurse - Ward A)", value: "Emily Chen" },
+  { label: "Jessica Wilson (Nurse - Ward B)", value: "Jessica Wilson" },
+];
+
+const today = new Date();
+const threeDaysAhead = new Date(today);
+threeDaysAhead.setDate(today.getDate() + 3);
 
 const initialPatients: Patient[] = [
   {
@@ -45,148 +66,214 @@ const initialPatients: Patient[] = [
     firstName: "John",
     lastName: "Doe",
     gender: "male",
-    address: "123 Main St, City",
+    address: "123 Main St",
     ward: "Ward A",
     bedNumber: "A-101",
+    assignedDoctor: "Dr. Sarah Johnson",
+    assignedNurse: "Emily Chen",
+    admissionDate: "3/10/2026",
+    patientType: "inpatient",
   },
   {
     mrn: "MRN001235",
-    name: "John Doe",
-    diagnosis: "Pneumonia",
-    dob: "3/15/1985",
-    contact: "555-1001",
-    email: "john.doe@gmail.com",
-    location: "Ward A A-101",
+    name: "Mary Smith",
+    diagnosis: "Diabetes Management",
+    dob: "6/20/1990",
+    contact: "555-1002",
+    email: "mary.smith@gmail.com",
+    location: "Ward A A-102",
     status: "admitted",
-    firstName: "John",
-    lastName: "Doe",
-    gender: "male",
-    address: "456 Oak Ave, Town",
+    firstName: "Mary",
+    lastName: "Smith",
+    gender: "female",
+    address: "456 Oak Ave",
     ward: "Ward A",
-    bedNumber: "A-101",
+    bedNumber: "A-102",
+    assignedDoctor: "Dr. Sarah Johnson",
+    assignedNurse: "Emily Chen",
+    admissionDate: "3/11/2026",
+    patientType: "inpatient",
   },
   {
     mrn: "MRN001236",
-    name: "John Doe",
-    diagnosis: "Pneumonia",
-    dob: "3/15/1985",
-    contact: "555-1001",
-    email: "john.doe@gmail.com",
-    location: "Ward A A-101",
+    name: "Robert Brown",
+    diagnosis: "Follow-up Checkup",
+    dob: "7/22/1990",
+    contact: "555-1003",
+    email: "robert.brown@gmail.com",
+    location: "Outpatient",
     status: "outpatient",
-    firstName: "John",
-    lastName: "Doe",
+    firstName: "Robert",
+    lastName: "Brown",
     gender: "male",
-    address: "789 Pine Rd, Village",
-    ward: "Ward A",
-    bedNumber: "A-101",
+    address: "789 Pine Rd",
+    ward: "",
+    bedNumber: "",
+    assignedDoctor: "Dr. Sarah Johnson",
+    assignedNurse: "",
+    admissionDate: "",
+    patientType: "outpatient",
+    appointmentDate: new Date(today.getTime() + 86400000).toLocaleDateString(),
   },
   {
     mrn: "MRN001237",
-    name: "John Doe",
+    name: "Jane Wilson",
     diagnosis: "Pneumonia",
-    dob: "3/15/1985",
-    contact: "555-1001",
-    email: "john.doe@gmail.com",
-    location: "Ward A A-101",
+    dob: "1/10/1978",
+    contact: "555-1004",
+    email: "jane.wilson@gmail.com",
+    location: "Ward A A-103",
     status: "admitted",
-    firstName: "John",
-    lastName: "Doe",
-    gender: "male",
-    address: "321 Elm St, Metro",
+    firstName: "Jane",
+    lastName: "Wilson",
+    gender: "female",
+    address: "321 Elm St",
     ward: "Ward A",
-    bedNumber: "A-101",
+    bedNumber: "A-103",
+    assignedDoctor: "Dr. Michael John",
+    assignedNurse: "Jessica Wilson",
+    admissionDate: "3/09/2026",
+    patientType: "inpatient",
+  },
+  {
+    mrn: "MRN001238",
+    name: "Alice Cooper",
+    diagnosis: "Blood Test Review",
+    dob: "4/05/1995",
+    contact: "555-1005",
+    email: "alice.cooper@gmail.com",
+    location: "Outpatient",
+    status: "outpatient",
+    firstName: "Alice",
+    lastName: "Cooper",
+    gender: "female",
+    address: "555 Maple Dr",
+    ward: "",
+    bedNumber: "",
+    assignedDoctor: "Dr. Michael John",
+    assignedNurse: "",
+    admissionDate: "",
+    patientType: "outpatient",
+    appointmentDate: new Date(
+      today.getTime() + 2 * 86400000,
+    ).toLocaleDateString(),
   },
 ];
 
-const statusVariant: Record<
-  string,
-  "green" | "red" | "blue" | "orange" | "gray" | "dark" | "outline"
-> = {
+const statusVariant: Record<string, "dark" | "outline" | "gray" | "green"> = {
   admitted: "dark",
   outpatient: "outline",
   discharged: "gray",
+  completed: "green",
 };
+
+const wardOptions = [
+  { label: "Ward A", value: "Ward A" },
+  { label: "Ward B", value: "Ward B" },
+  { label: "Ward C", value: "Ward C" },
+  { label: "ICU", value: "ICU" },
+];
 
 const PatientManagement = () => {
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [search, setSearch] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
-  const [editPatient, setEditPatient] = useState<PatientFormData | null>(null);
+  const [editData, setEditData] = useState<Patient | null>(null);
+  const [dischargeConfirm, setDischargeConfirm] = useState<string | null>(null);
+  const [completeConfirm, setCompleteConfirm] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  const filtered = patients.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.mrn.toLowerCase().includes(search.toLowerCase()),
+  // Only active patients (hide discharged/completed, outpatients within 3 days)
+  const activeFilter = (list: Patient[]) =>
+    list.filter((p) => {
+      if (p.status === "discharged" || p.status === "completed") return false;
+      if (p.patientType === "outpatient" && p.appointmentDate) {
+        const apptDate = new Date(p.appointmentDate);
+        return apptDate <= threeDaysAhead;
+      }
+      return true;
+    });
+
+  const myPatients = activeFilter(
+    patients.filter((p) => p.assignedDoctor === currentDoctor),
   );
 
-  const handleAdd = (data: PatientFormData) => {
-    const newPatient: Patient = {
-      mrn: data.mrn || `MRN00${1238 + patients.length}`,
-      name: `${data.firstName} ${data.lastName}`,
-      diagnosis: data.diagnosis,
-      dob: data.dob,
-      contact: data.phone,
-      email: data.email,
-      location: `${data.ward} ${data.bedNumber}`,
-      status: data.status,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      gender: data.gender,
-      address: data.address,
-      ward: data.ward,
-      bedNumber: data.bedNumber,
-    };
-    setPatients([...patients, newPatient]);
+  // ── Modified Filter ────────────────────────────────────────────────
+  const wardPatients = activeFilter(
+    patients.filter(
+      (p) =>
+        p.patientType === "inpatient" && // Ensures only inpatients show in Ward view
+        (p.ward === currentWard || p.assignedDoctor === currentDoctor),
+    ),
+  );
+
+  const getFiltered = () => {
+    const base = activeTab === 0 ? myPatients : wardPatients;
+    if (!search) return base;
+    const q = search.toLowerCase();
+    return base.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) || p.mrn.toLowerCase().includes(q),
+    );
   };
+
+  const filtered = getFiltered();
+
+  const tabs = [
+    { label: "My Patients", count: myPatients.length },
+    { label: "Ward Patients", count: wardPatients.length },
+  ];
 
   const handleEdit = (patient: Patient) => {
-    setEditPatient({
-      mrn: patient.mrn,
-      status: patient.status,
-      firstName: patient.firstName,
-      lastName: patient.lastName,
-      dob: patient.dob,
-      gender: patient.gender,
-      address: patient.address,
-      phone: patient.contact,
-      email: patient.email,
-      ward: patient.ward,
-      bedNumber: patient.bedNumber,
-      diagnosis: patient.diagnosis,
-    });
+    setEditData({ ...patient });
     setEditOpen(true);
+    setError("");
   };
 
-  const handleUpdate = (data: PatientFormData) => {
+  const handleUpdate = () => {
+    if (!editData) return;
+    if (!editData.firstName || !editData.lastName || !editData.diagnosis) {
+      setError("Please fill all required fields.");
+      return;
+    }
     setPatients(
       patients.map((p) =>
-        p.mrn === data.mrn
+        p.mrn === editData.mrn
           ? {
-              ...p,
-              name: `${data.firstName} ${data.lastName}`,
-              diagnosis: data.diagnosis,
-              dob: data.dob,
-              contact: data.phone,
-              email: data.email,
-              location: `${data.ward} ${data.bedNumber}`,
-              status: data.status,
-              firstName: data.firstName,
-              lastName: data.lastName,
-              gender: data.gender,
-              address: data.address,
-              ward: data.ward,
-              bedNumber: data.bedNumber,
+              ...editData,
+              name: `${editData.firstName} ${editData.lastName}`,
+              location:
+                editData.patientType === "inpatient"
+                  ? `${editData.ward} ${editData.bedNumber}`
+                  : "Outpatient",
             }
           : p,
       ),
     );
+    setEditOpen(false);
+    setEditData(null);
+    setError("");
   };
 
-  const handleDelete = (mrn: string) => {
-    setPatients(patients.filter((p) => p.mrn !== mrn));
+  const updateField = (field: keyof Patient, value: string) => {
+    if (!editData) return;
+    setEditData({ ...editData, [field]: value });
+  };
+
+  const handleDischarge = (mrn: string) => {
+    setPatients(
+      patients.map((p) => (p.mrn === mrn ? { ...p, status: "discharged" } : p)),
+    );
+    setDischargeConfirm(null);
+  };
+
+  const handleComplete = (mrn: string) => {
+    setPatients(
+      patients.map((p) => (p.mrn === mrn ? { ...p, status: "completed" } : p)),
+    );
+    setCompleteConfirm(null);
   };
 
   const columns: Column[] = [
@@ -194,78 +281,106 @@ const PatientManagement = () => {
     {
       key: "name",
       header: "Patient",
-      render: (row) => {
-        const patient = row as Patient;
-        return (
-          <div>
-            <p className="font-semibold text-gray-900">{patient.name}</p>
-            <p className="text-xs text-gray-400">{patient.diagnosis}</p>
-          </div>
-        );
-      },
+      render: (row: unknown) => (
+        <div>
+          <p className="font-semibold text-gray-900">{(row as Patient).name}</p>
+          <p className="text-xs text-gray-400">{(row as Patient).diagnosis}</p>
+        </div>
+      ),
     },
-    { key: "dob", header: "DOB" },
     {
-      key: "contact",
-      header: "Contact",
-      render: (row) => {
-        const patient = row as Patient;
-        return (
-          <div>
-            <p>{patient.contact}</p>
-            <p className="text-xs text-gray-400">{patient.email}</p>
-          </div>
-        );
-      },
+      key: "patientType",
+      header: "Type",
+      render: (row: unknown) => (
+        <Badge
+          text={(row as Patient).patientType}
+          variant={
+            (row as Patient).patientType === "inpatient" ? "dark" : "outline"
+          }
+        />
+      ),
     },
-    { key: "location", header: "Location" },
+    {
+      key: "assignedNurse",
+      header: "Nurse",
+      render: (row: unknown) => (
+        <span className="text-sm text-gray-600">
+          {(row as Patient).assignedNurse || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "location",
+      header: "Location",
+      render: (row: unknown) => (
+        <span className="text-sm text-gray-700">
+          {(row as Patient).patientType === "outpatient" &&
+          (row as Patient).appointmentDate
+            ? `Appt: ${(row as Patient).appointmentDate}`
+            : (row as Patient).location}
+        </span>
+      ),
+    },
     {
       key: "status",
       header: "Status",
-      render: (row) => {
-        const patient = row as Patient;
-        return (
-          <Badge
-            text={patient.status}
-            variant={statusVariant[patient.status] || "gray"}
-          />
-        );
-      },
+      render: (row: unknown) => (
+        <Badge
+          text={(row as Patient).status}
+          variant={statusVariant[(row as Patient).status] || "gray"}
+        />
+      ),
     },
     {
       key: "actions",
       header: "Actions",
-      render: (row) => {
-        const patient = row as Patient;
-        return (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate(`/doctor/patients/${patient.mrn}`)}
-              className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
-            >
-              <HiOutlineEye className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleEdit(patient)}
-              className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
-            >
-              <HiOutlinePencilSquare className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleDelete(patient.mrn)}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <HiOutlineTrash className="w-4 h-4" />
-            </button>
-          </div>
-        );
-      },
+      render: (row: unknown) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate(`/doctor/patients/${(row as Patient).mrn}`)}
+            className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
+            title="View"
+          >
+            <HiOutlineEye className="w-4 h-4" />
+          </button>
+          {(row as Patient).assignedDoctor === currentDoctor && (
+            <>
+              <button
+                onClick={() => handleEdit(row as Patient)}
+                className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
+                title="Edit"
+              >
+                <HiOutlinePencilSquare className="w-4 h-4" />
+              </button>
+              {(row as Patient).patientType === "inpatient" &&
+                (row as Patient).status === "admitted" && (
+                  <button
+                    onClick={() => setDischargeConfirm((row as Patient).mrn)}
+                    className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                    title="Discharge"
+                  >
+                    <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
+                  </button>
+                )}
+              {(row as Patient).patientType === "outpatient" &&
+                (row as Patient).status === "outpatient" && (
+                  <button
+                    onClick={() => setCompleteConfirm((row as Patient).mrn)}
+                    className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    title="Complete"
+                  >
+                    <HiOutlineCheckCircle className="w-4 h-4" />
+                  </button>
+                )}
+            </>
+          )}
+        </div>
+      ),
     },
   ];
 
   return (
     <>
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -273,45 +388,191 @@ const PatientManagement = () => {
           </h1>
           <div className="flex items-center gap-3 mt-1">
             <span className="text-sm text-gray-500">
-              View and manage patient records
+              View and manage your patient records
             </span>
-            <span className="text-sm text-gray-400">Apr 1, 2025</span>
+            <span className="text-sm text-gray-400">Apr 1, 2026</span>
             <span className="text-sm text-gray-400">9:41 AM</span>
           </div>
         </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-[#1a5276] hover:bg-[#154360] text-white text-sm font-medium rounded-lg transition-colors shrink-0"
-        >
-          <HiOutlinePlus className="w-4 h-4" />
-          Add Patient
-        </button>
       </div>
 
-      {/* Search */}
+      <div className="mb-4">
+        <Tabs tabs={tabs} activeIndex={activeTab} onChange={setActiveTab} />
+      </div>
+
       <div className="mb-6">
         <SearchBar
           value={search}
           onChange={setSearch}
-          placeholder="Search Patients by Name or MRN..."
+          placeholder="Search patients by name or MRN..."
         />
       </div>
 
-      {/* Table */}
       <DataTable columns={columns} data={filtered} keyField="mrn" />
 
-      {/* Modals */}
-      <AddPatientModal
-        isOpen={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdd={handleAdd}
-      />
-      <UpdatePatientModal
-        isOpen={editOpen}
-        onClose={() => setEditOpen(false)}
-        onUpdate={handleUpdate}
-        patient={editPatient}
-      />
+      {/* Update Modal */}
+      {editData && (
+        <Modal
+          title="Update Patient"
+          isOpen={editOpen}
+          onClose={() => {
+            setEditOpen(false);
+            setError("");
+          }}
+          footer={
+            <>
+              <button
+                onClick={() => setEditOpen(false)}
+                className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdate}
+                className="px-5 py-2 text-sm font-medium text-white bg-[#1a5276] rounded-lg hover:bg-[#154360]"
+              >
+                Update Patient
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                {error}
+              </div>
+            )}
+            <InputField
+              label="Medical Record Number"
+              value={editData.mrn}
+              onChange={() => {}}
+              disabled
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField
+                label="First Name"
+                value={editData.firstName}
+                onChange={(v) => updateField("firstName", v)}
+                required
+              />
+              <InputField
+                label="Last Name"
+                value={editData.lastName}
+                onChange={(v) => updateField("lastName", v)}
+                required
+              />
+            </div>
+            <InputField
+              label="Diagnosis"
+              value={editData.diagnosis}
+              onChange={(v) => updateField("diagnosis", v)}
+              required
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField
+                label="Phone"
+                value={editData.contact}
+                onChange={(v) => updateField("contact", v)}
+                type="tel"
+              />
+              <InputField
+                label="Email"
+                value={editData.email}
+                onChange={(v) => updateField("email", v)}
+                type="email"
+              />
+            </div>
+            <SelectField
+              label="Assigned Nurse"
+              value={editData.assignedNurse}
+              onChange={(v) => updateField("assignedNurse", v)}
+              options={teamNurses}
+              placeholder="Select nurse from your team"
+            />
+            {editData.patientType === "inpatient" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <SelectField
+                  label="Ward"
+                  value={editData.ward}
+                  onChange={(v) => updateField("ward", v)}
+                  options={wardOptions}
+                />
+                <InputField
+                  label="Bed Number"
+                  value={editData.bedNumber}
+                  onChange={(v) => updateField("bedNumber", v)}
+                />
+              </div>
+            )}
+            {editData.patientType === "outpatient" && (
+              <InputField
+                label="Appointment Date"
+                value={editData.appointmentDate || ""}
+                onChange={(v) => updateField("appointmentDate", v)}
+                type="date"
+              />
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Discharge Confirmation */}
+      <Modal
+        title="Discharge Patient"
+        isOpen={!!dischargeConfirm}
+        onClose={() => setDischargeConfirm(null)}
+        footer={
+          <>
+            <button
+              onClick={() => setDischargeConfirm(null)}
+              className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() =>
+                dischargeConfirm && handleDischarge(dischargeConfirm)
+              }
+              className="px-5 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700"
+            >
+              Discharge
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          Are you sure you want to discharge this patient? They will be removed
+          from your active list.
+        </p>
+      </Modal>
+
+      {/* Complete Appointment */}
+      <Modal
+        title="Complete Appointment"
+        isOpen={!!completeConfirm}
+        onClose={() => setCompleteConfirm(null)}
+        footer={
+          <>
+            <button
+              onClick={() => setCompleteConfirm(null)}
+              className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => completeConfirm && handleComplete(completeConfirm)}
+              className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+            >
+              Mark Complete
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          Mark this appointment as completed? The patient will be removed from
+          your active list.
+        </p>
+      </Modal>
     </>
   );
 };

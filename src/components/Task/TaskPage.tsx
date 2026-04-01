@@ -17,7 +17,6 @@ import TaskCard, { type Task } from "./TaskCard";
 
 type TaskPriority = "high" | "medium" | "low";
 
-// Dummy Initial Data matching design
 const INITIAL_TASKS: Task[] = [
   {
     id: "1",
@@ -30,25 +29,43 @@ const INITIAL_TASKS: Task[] = [
   },
   {
     id: "2",
-    title: "Administer morning medications",
-    description: "Administer scheduled morning medications to Ward A patients",
+    title: "Review lab results for Patient 1",
+    description: "Check CBC and CMP results from morning blood draw",
+    assignedTo: "Dr. Sarah Johnson",
+    type: "Clinical",
+    priority: "high",
+    status: "pending",
+  },
+  {
+    id: "3",
+    title: "Update discharge summary",
+    description: "Complete discharge documentation for MRN001236",
+    assignedTo: "Dr. Sarah Johnson",
+    type: "Administrative",
+    priority: "medium",
+    status: "in-progress",
+  },
+  {
+    id: "4",
+    title: "Administer evening medications",
+    description: "Administer scheduled evening medications to Ward B patients",
     assignedTo: "Emily Chen",
     type: "Medication",
-    priority: "high",
-    status: "completed",
+    priority: "medium",
+    status: "pending",
   },
 ];
 
 export default function TaskPage() {
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [activeTabIndex, setActiveTabIndex] = useState(2); // Default to "All Tasks"
+  const [activeTabIndex, setActiveTabIndex] = useState(2);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: "",
     assignedTo: "",
-    type: "", // Empty initial value to show placeholder
+    type: "",
     priority: "medium" as TaskPriority,
     content: "",
   });
@@ -59,17 +76,35 @@ export default function TaskPage() {
     department: "General Medicine",
   };
 
+  const handleCompleteTask = (taskId: string) => {
+    setTasks(
+      tasks.map((t) =>
+        t.id === taskId ? { ...t, status: "completed" as const } : t,
+      ),
+    );
+  };
+
   const taskTabs = [
     {
       label: "My Tasks",
       count: tasks.filter((t) => t.assignedTo === currentUser.name).length,
     },
-    { label: "I Assigned", count: 2 },
+    {
+      label: "I Assigned",
+      count: tasks.filter((t) => t.assignedTo !== currentUser.name).length,
+    },
     { label: "All Tasks", count: tasks.length },
   ];
 
+  const getFilteredTasks = () => {
+    if (activeTabIndex === 0)
+      return tasks.filter((t) => t.assignedTo === currentUser.name);
+    if (activeTabIndex === 1)
+      return tasks.filter((t) => t.assignedTo !== currentUser.name);
+    return tasks;
+  };
+
   const handleCreateTask = () => {
-    // Validation matches inline error prompt pattern
     if (
       !formData.title.trim() ||
       !formData.content.trim() ||
@@ -102,6 +137,8 @@ export default function TaskPage() {
     });
   };
 
+  const filtered = getFilteredTasks();
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
@@ -114,7 +151,7 @@ export default function TaskPage() {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-black text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] transition-all shadow-md"
         >
           <HiOutlinePlus className="w-5 h-5" /> Create Task
         </button>
@@ -154,8 +191,15 @@ export default function TaskPage() {
       />
 
       <div className="grid grid-cols-1 gap-4">
-        {tasks.length > 0 ? (
-          tasks.map((task) => <TaskCard key={task.id} task={task} />)
+        {filtered.length > 0 ? (
+          filtered.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              isOwnTask={task.assignedTo === currentUser.name}
+              onComplete={handleCompleteTask}
+            />
+          ))
         ) : (
           <div className="bg-white rounded-2xl py-20 border border-gray-100 text-center shadow-sm">
             <HiOutlineClipboard className="w-12 h-12 text-gray-200 mx-auto mb-3" />
@@ -181,7 +225,7 @@ export default function TaskPage() {
             </button>
             <button
               onClick={handleCreateTask}
-              className="bg-black text-white px-6 py-2 rounded-xl font-bold hover:bg-gray-800 transition-colors"
+              className="px-6 py-2 bg-[#1a5276] text-white rounded-xl text-sm font-bold shadow-sm"
             >
               Create Task
             </button>
@@ -205,7 +249,6 @@ export default function TaskPage() {
             required
           />
 
-          {/* SelectField for Staff */}
           <SelectField
             label="Assigned To"
             value={formData.assignedTo}
@@ -226,7 +269,6 @@ export default function TaskPage() {
           />
 
           <div className="grid grid-cols-2 gap-4">
-            {/* SelectField for Task Categories */}
             <SelectField
               label="Type"
               value={formData.type}
