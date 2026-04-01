@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useOutletContext, useNavigate } from "react-router-dom"; 
+import { type UserContextType } from "../layout/DoctorLayout";
 import {
   HiOutlineUsers,
   HiOutlineCheckCircle,
@@ -10,6 +11,10 @@ import { StatCard, WardOccupancy } from "../ui";
 
 const WardDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  //const { userRole } = useOutletContext<UserContextType>();
+
+  const basePath = location.pathname.startsWith('/nurse') ? '/nurse' : '/doctor';
 
   return (
     <div className="space-y-6">
@@ -87,7 +92,7 @@ const WardDashboard = () => {
                 New safety protocols for Ward A updated.
               </div>
               <button
-                onClick={() => navigate("/doctor/noticeboard")}
+                onClick={() => navigate(`${basePath}/noticeboard`)}
                 className="text-blue-600 text-xs font-bold flex items-center gap-1 mt-2 hover:underline transition-all"
               >
                 View all notices <HiOutlineArrowSmallRight />
@@ -102,19 +107,19 @@ const WardDashboard = () => {
             </h2>
             <div className="space-y-3">
               <button
-                onClick={() => navigate("/doctor/tasks")}
+                onClick={() => navigate(`${basePath}/tasks`)}
                 className="w-full py-3 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] shadow-md active:scale-[0.98] transition-all"
               >
                 Manage Tasks
               </button>
               <button
-                onClick={() => navigate("/doctor/roster")}
+                onClick={() => navigate(`${basePath}/roster`)}
                 className="w-full py-3 bg-[#a855f7] text-white rounded-xl text-sm font-bold hover:bg-[#9333ea] shadow-md active:scale-[0.98] transition-all"
               >
                 View Roster
               </button>
               <button
-                onClick={() => navigate("/doctor/directory")}
+                onClick={() => navigate(`${basePath}/directory`)}
                 className="w-full py-3 bg-[#22c55e] text-white rounded-xl text-sm font-bold hover:bg-[#16a34a] shadow-md active:scale-[0.98] transition-all"
               >
                 Staff Directory

@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useOutletContext } from "react-router-dom"; 
+import { type UserContextType } from "../layout/DoctorLayout";
+
 import {
   Tabs,
   Modal,
@@ -17,12 +20,14 @@ import TaskCard, { type Task } from "./TaskCard";
 
 type TaskPriority = "high" | "medium" | "low";
 
+
+
 const INITIAL_TASKS: Task[] = [
   {
     id: "1",
     title: "Administer morning medications",
     description: "Administer scheduled morning medications to Ward A patients",
-    assignedTo: "Emily Chen",
+    assignedTo: "Nurse Jane Doe",
     type: "Medication",
     priority: "high",
     status: "completed",
@@ -49,18 +54,22 @@ const INITIAL_TASKS: Task[] = [
     id: "4",
     title: "Administer evening medications",
     description: "Administer scheduled evening medications to Ward B patients",
-    assignedTo: "Emily Chen",
+    assignedTo: "Nurse Jane Doe",
     type: "Medication",
     priority: "medium",
     status: "pending",
   },
+
+  
 ];
 
 export default function TaskPage() {
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [activeTabIndex, setActiveTabIndex] = useState(2);
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { userName, userRole } = useOutletContext<UserContextType>(); // 1. Get context
+  const isNurse = userRole === "Nurse";
 
   const [formData, setFormData] = useState({
     title: "",
@@ -71,9 +80,9 @@ export default function TaskPage() {
   });
 
   const currentUser = {
-    name: "Dr. Sarah Johnson",
-    role: "Doctor",
-    department: "General Medicine",
+    name: userName,
+    role: userRole,
+    department: isNurse ? "Nursing" : "General Medicine",
   };
 
   const handleCompleteTask = (taskId: string) => {
@@ -84,23 +93,41 @@ export default function TaskPage() {
     );
   };
 
+ // This replaces both the original constant and the .push() logic
   const taskTabs = [
     {
       label: "My Tasks",
-      count: tasks.filter((t) => t.assignedTo === currentUser.name).length,
+      count: tasks.filter((t) => t.assignedTo === userName).length,
     },
-    {
+    // The spread operator (...) handles the conditional logic cleanly without .push()
+    ...(!isNurse ? [{
       label: "I Assigned",
-      count: tasks.filter((t) => t.assignedTo !== currentUser.name).length,
+      count: tasks.filter((t) => t.assignedTo !== userName).length,
+    }] : []),
+    {
+      label: "All Tasks",
+      count: tasks.length,
     },
-    { label: "All Tasks", count: tasks.length },
   ];
 
+
   const getFilteredTasks = () => {
-    if (activeTabIndex === 0)
+    // Tab 0 is always "My Tasks"
+    if (activeTabIndex === 0) {
       return tasks.filter((t) => t.assignedTo === currentUser.name);
-    if (activeTabIndex === 1)
-      return tasks.filter((t) => t.assignedTo !== currentUser.name);
+    }
+
+    if (isNurse) {
+      // For Nurses: Tab 1 is "All Tasks"
+      if (activeTabIndex === 1) return tasks;
+    } else {
+      // For Doctors: Tab 1 is "I Assigned", Tab 2 is "All Tasks"
+      if (activeTabIndex === 1) {
+        return tasks.filter((t) => t.assignedTo !== currentUser.name);
+      }
+      if (activeTabIndex === 2) return tasks;
+    }
+
     return tasks;
   };
 
@@ -115,6 +142,21 @@ export default function TaskPage() {
       return;
     }
 
+   if (editingTask) {
+    // UPDATE LOGIC: Map through tasks and replace the one that matches the ID
+    setTasks(tasks.map(t => 
+      t.id === editingTask.id 
+        ? { ...t, 
+            title: formData.title, 
+            description: formData.content, 
+            assignedTo: formData.assignedTo, 
+            type: formData.type, 
+            priority: formData.priority 
+          } 
+        : t
+    ));
+  } else {
+    // CREATE LOGIC: Add a brand new task to the list
     const newTask: Task = {
       id: `task-${Date.now()}`,
       title: formData.title,
@@ -124,9 +166,11 @@ export default function TaskPage() {
       priority: formData.priority,
       status: "pending",
     };
-
     setTasks([newTask, ...tasks]);
+  }
+
     setIsModalOpen(false);
+    setEditingTask(null); 
     setError(null);
     setFormData({
       title: "",
@@ -139,6 +183,26 @@ export default function TaskPage() {
 
   const filtered = getFilteredTasks();
 
+  // 1. Delete a task permanently
+const handleDeleteTask = (taskId: string) => {
+  setTasks(prev => prev.filter(t => t.id !== taskId));
+};
+
+// 2. Setup state for editing
+const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+const handleEditTask = (task: Task) => {
+  setEditingTask(task);
+  setFormData({
+    title: task.title,
+    assignedTo: task.assignedTo,
+    type: task.type,
+    priority: task.priority,
+    content: task.description,
+  });
+  setIsModalOpen(true);
+};
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
@@ -149,12 +213,14 @@ export default function TaskPage() {
           time="9:41 AM"
         />
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] transition-all shadow-md"
-        >
-          <HiOutlinePlus className="w-5 h-5" /> Create Task
-        </button>
+        {!isNurse && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] transition-all shadow-md"
+          >
+            <HiOutlinePlus className="w-5 h-5" /> Create Task
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -192,14 +258,24 @@ export default function TaskPage() {
 
       <div className="grid grid-cols-1 gap-4">
         {filtered.length > 0 ? (
-          filtered.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              isOwnTask={task.assignedTo === currentUser.name}
-              onComplete={handleCompleteTask}
-            />
-          ))
+          filtered.map((task) => {
+            // Determine if the currently selected tab is the "All Tasks" tab
+            const isAllTasksTab = isNurse ? activeTabIndex === 1 : activeTabIndex === 2;
+
+            return (
+              <TaskCard
+                key={task.id}
+                task={task}
+                // isOwnTask is only true if we are NOT in the "All Tasks" tab
+                isOwnTask={!isAllTasksTab && task.assignedTo === currentUser.name}
+                onComplete={handleCompleteTask}
+                onDelete={() => handleDeleteTask(task.id)}
+                onEdit={() => handleEditTask(task)}
+                // canManage is only true if NOT in "All Tasks" and current user is a Doctor who assigned it
+                canManage={!isAllTasksTab && !isNurse && task.assignedTo !== currentUser.name}
+              />
+            );
+          })
         ) : (
           <div className="bg-white rounded-2xl py-20 border border-gray-100 text-center shadow-sm">
             <HiOutlineClipboard className="w-12 h-12 text-gray-200 mx-auto mb-3" />
@@ -207,14 +283,15 @@ export default function TaskPage() {
           </div>
         )}
       </div>
-
-      <Modal
+      {!isNurse && (
+        <Modal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
+          setEditingTask(null);
           setError(null);
         }}
-        title="Create Task"
+        title={editingTask ? "Edit Task" : "Create Task"}
         footer={
           <div className="flex justify-end gap-3">
             <button
@@ -227,7 +304,7 @@ export default function TaskPage() {
               onClick={handleCreateTask}
               className="px-6 py-2 bg-[#1a5276] text-white rounded-xl text-sm font-bold shadow-sm"
             >
-              Create Task
+              {editingTask ? "Save Changes" : "Create Task"}
             </button>
           </div>
         }
@@ -316,6 +393,7 @@ export default function TaskPage() {
           />
         </div>
       </Modal>
+      )}
     </div>
   );
 }

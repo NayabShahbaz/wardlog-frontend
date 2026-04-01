@@ -37,9 +37,16 @@ interface TaskCardProps {
   task: Task;
   onComplete?: (id: string) => void;
   isOwnTask?: boolean;
+
+  onDelete?: () => void;
+  onEdit?: () => void;
+  canManage?: boolean;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, isOwnTask }) => {
+
+
+const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, isOwnTask , onDelete, onEdit,
+  canManage}) => {
   const canComplete = isOwnTask && task.status !== "completed" && onComplete;
 
   return (
@@ -65,20 +72,39 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, isOwnTask }) => {
           <Badge text={task.status} variant={statusMap[task.status]} />
         </div>
 
-        {canComplete && (
-          <button
-            onClick={() => onComplete(task.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-            style={{
-              borderWidth: "1px",
-              borderStyle: "solid",
-              borderColor: "#bbf7d0",
-            }}
-          >
-            <HiOutlineCheckCircle className="w-4 h-4" />
-            Mark Complete
-          </button>
-        )}
+       <div className="flex items-center gap-3">
+    {canComplete && (
+      <button
+        onClick={() => onComplete(task.id)}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+        style={{
+          borderWidth: "1px",
+          borderStyle: "solid",
+          borderColor: "#bbf7d0",
+        }}
+      >
+        <HiOutlineCheckCircle className="w-4 h-4" />
+        Mark Complete
+      </button>
+    )}
+
+    {/* This button will only show if status is exactly "completed" */}
+    {task.status === "completed" && isOwnTask && onDelete && (
+      <button 
+        onClick={onDelete} 
+        className="text-red-600 text-xs font-bold hover:underline"
+      >
+        Delete Task
+      </button>
+    )}
+
+    {canManage && (
+      <div className="flex gap-2">
+        <button onClick={onEdit} className="text-blue-600 text-xs font-bold hover:underline">Edit</button>
+        <button onClick={onDelete} className="text-red-600 text-xs font-bold hover:underline">Delete</button>
+      </div>
+    )}
+    </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Tabs from "../ui/Tabs";
 import ClinicalNotesSection from "./ClinicalNotesSection";
 import LabOrdersSection, { type LabOrder } from "./LabOrdersSection.tsx";
@@ -10,6 +10,8 @@ import CreateNoteModal, {
 import CreateLabOrderModal from "./CreateLabOrderModal.tsx";
 import CreateERoundModal from "./CreateERoundModal.tsx";
 import { type ClinicalNote } from "./ClinicalNoteCard";
+import { useOutletContext } from "react-router-dom"; 
+import { type UserContextType } from "../layout/DoctorLayout";
 
 // Mock data
 const initialNotes: ClinicalNote[] = [
@@ -90,6 +92,8 @@ const orderTypeLabels: Record<string, string> = {
 };
 
 const ClinicalDocumentation = () => {
+  const { userRole } = useOutletContext<UserContextType>();
+  const isNurse = userRole === "Nurse";
   const [activeTab, setActiveTab] = useState(0);
   const [notes, setNotes] = useState<ClinicalNote[]>(initialNotes);
   const [labOrders, setLabOrders] = useState<LabOrder[]>(initialLabOrders);
@@ -206,6 +210,19 @@ const ClinicalDocumentation = () => {
     setERounds([newRound, ...eRounds]);
   };
 
+  //delete a patients notes, lab orders and e-rounds when they are discharged to keep the UI clean. This is done by listening to a custom "patientDischarged" event that is dispatched from the PatientManagement component when a patient is discharged.
+  useEffect(() => {
+  const handleDischarge = (event: any) => {
+    const dischargedMrn = event.detail.mrn;
+   
+    setNotes(prev => prev.filter(note => note.patientMrn !== dischargedMrn));
+    setLabOrders(prev => prev.filter(order => order.patientMrn !== dischargedMrn));
+    setERounds(prev => prev.filter(round => round.patientMrn !== dischargedMrn));
+  };
+
+  window.addEventListener("patientDischarged", handleDischarge);
+  return () => window.removeEventListener("patientDischarged", handleDischarge);
+}, []);
   return (
     <>
       {/* Header */}
@@ -231,7 +248,7 @@ const ClinicalDocumentation = () => {
       {activeTab === 0 && (
         <ClinicalNotesSection
           notes={notes}
-          onCreateNote={() => setCreateNoteOpen(true)}
+          onCreateNote={isNurse ? undefined : () => setCreateNoteOpen(true)}
         />
       )}
 
@@ -245,29 +262,36 @@ const ClinicalDocumentation = () => {
       {activeTab === 2 && (
         <ERoundsSection
           rounds={eRounds}
-          onRecordRound={() => setCreateERoundOpen(true)}
+          onRecordRound={isNurse ? undefined : () => setCreateERoundOpen(true)}
         />
       )}
 
-      {/* Modals */}
-      <CreateNoteModal
-        isOpen={createNoteOpen}
-        onClose={() => setCreateNoteOpen(false)}
-        onSave={handleSaveNote}
-        patients={patientOptions}
-      />
+      {!isNurse && (
+        <>
+
+          {/* Modals */}
+          <CreateNoteModal
+            isOpen={createNoteOpen}
+            onClose={() => setCreateNoteOpen(false)}
+            onSave={handleSaveNote}
+            patients={patientOptions}
+          />
+          <CreateERoundModal
+          isOpen={createERoundOpen}
+          onClose={() => setCreateERoundOpen(false)}
+          onSave={handleSaveERound}
+          patients={patientOptions}
+          />
+        </>
+      )}
+
       <CreateLabOrderModal
         isOpen={createLabOpen}
         onClose={() => setCreateLabOpen(false)}
         onSave={handleSaveLabOrder}
         patients={patientOptions}
       />
-      <CreateERoundModal
-        isOpen={createERoundOpen}
-        onClose={() => setCreateERoundOpen(false)}
-        onSave={handleSaveERound}
-        patients={patientOptions}
-      />
+      
     </>
   );
 };

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { Badge } from "../ui";
 import InfoGrid from "../ui/InfoGrid";
 import Tabs from "../ui/Tabs";
@@ -12,6 +12,7 @@ import CreateNoteModal from "../clinical/CreateNoteModal";
 import CreateLabOrderModal from "../clinical/CreateLabOrderModal";
 import CreateERoundModal from "../clinical/CreateERoundModal";
 import { HiOutlineUsers } from "react-icons/hi2";
+
 
 interface Patient {
   name: string;
@@ -29,6 +30,12 @@ interface Patient {
   diagnosis: string;
   assignedDoctor: string;
 }
+
+interface UserContext {
+  userName: string;
+  userRole: string;
+}
+
 const mockPatients: Record<string, Patient> = {
   MRN001234: {
     name: "John Doe",
@@ -164,11 +171,15 @@ const mockERounds: ERound[] = [
   },
 ];
 
-const patientOptions = [{ label: "John Doe (MRN001234)", value: "MRN001234" }];
+
 
 const PatientDetail = () => {
+  const { userName,userRole } = useOutletContext<UserContext>(); // Get data from Layout
   const navigate = useNavigate();
+  const location = useLocation();
+  const isNurse = userRole === "Nurse";
   const { mrn } = useParams<{ mrn: string }>();
+  const basePath = location.pathname.startsWith("/nurse") ? "/nurse" : "/doctor";
   const [activeTab, setActiveTab] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [createLabOpen, setCreateLabOpen] = useState(false);
@@ -255,7 +266,7 @@ const PatientDetail = () => {
       title: templateLabels[data.template] || data.template,
       patientName: patient.name,
       patientMrn: patient.mrn,
-      doctor: "Dr. Sarah Johnson",
+      doctor: userName,
       date: new Date().toLocaleString(),
       status: "Draft",
       soap,
@@ -264,11 +275,49 @@ const PatientDetail = () => {
     setNotes([newNote, ...notes]);
   };
 
+  // 2. THE LAB ORDER FUNCTION (NEWLY DEFINED)
+  const handleSaveLabOrder = (data: any) => {
+    const newOrder: LabOrder = {
+      id: `lo-${labOrders.length + 1}`,
+      orderType: data.orderType === "blood_work" ? "Blood Work" : data.orderType,
+      patient: patient.name,
+      patientMrn: patient.mrn,
+      doctor: userName, // <--- FIXED: Uses Context
+      date: new Date().toLocaleString(),
+      priority: data.priority,
+      status: "in-progress",
+      tests: data.tests.split(",").map((t: string) => t.trim()).filter(Boolean),
+    };
+    setLabOrders([newOrder, ...labOrders]);
+  };
+
+  // 3. THE E-ROUND FUNCTION (NEWLY DEFINED)
+  const handleSaveERound = (data: any) => {
+    const newRound: ERound = {
+      id: `er-${eRounds.length + 1}`,
+      title: `Daily Progress - ${data.date}`,
+      patient: patient.name,
+      patientMrn: patient.mrn,
+      doctor: userName, // <--- FIXED: Uses Context
+      date: data.date,
+      vitals: {
+        temperature: data.vitals.temperature || undefined,
+        bp: data.vitals.bp || undefined,
+        heartRate: data.vitals.heartRate || undefined,
+        respRate: data.vitals.respRate || undefined,
+        o2Sat: data.vitals.o2Sat || undefined,
+      },
+      assessment: data.assessment,
+      plan: data.plan,
+    };
+    setERounds([newRound, ...eRounds]);
+  };
+
   return (
     <>
       <BackButton
         label="Back to Patients"
-        onClick={() => navigate("/doctor/patients")}
+        onClick={() => navigate(`${basePath}/patients`)}
       />
 
       {/* Header */}
@@ -300,7 +349,7 @@ const PatientDetail = () => {
       {activeTab === 0 && (
         <ClinicalNotesSection
           notes={notes}
-          onCreateNote={() => setCreateOpen(true)}
+          onCreateNote={isNurse ? undefined : () => setCreateOpen(true)}
         />
       )}
 
@@ -316,67 +365,38 @@ const PatientDetail = () => {
       {activeTab === 2 && (
         <ERoundsSection
           rounds={eRounds}
-          onRecordRound={() => setCreateERoundOpen(true)}
+          onRecordRound={isNurse ? undefined : () => setCreateERoundOpen(true)}
         />
       )}
+      
+      {!isNurse && (
+        <>
+          {/* Modals */}
+          <CreateNoteModal
+            isOpen={createOpen}
+            onClose={() => setCreateOpen(false)}
+            onSave={handleSaveNote}
+            patients={[{ label: patient.name, value: patient.mrn }]}
+          />
+          
+          <CreateERoundModal
+            isOpen={createERoundOpen}
+            onClose={() => setCreateERoundOpen(false)}
+            onSave={handleSaveERound}
+            patients={[{ label: patient.name, value: patient.mrn }]}
+          />
+        </>
+      )}
 
-      {/* Modals */}
-      <CreateNoteModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onSave={handleSaveNote}
-        patients={patientOptions}
-      />
       <CreateLabOrderModal
-        isOpen={createLabOpen}
-        onClose={() => setCreateLabOpen(false)}
-        onSave={(data) => {
-          const newOrder: LabOrder = {
-            id: `lo-${labOrders.length + 1}`,
-            orderType:
-              data.orderType === "blood_work" ? "Blood Work" : data.orderType,
-            patient: patient.name,
-            patientMrn: patient.mrn,
-            doctor: "Dr. Sarah Johnson",
-            date: new Date().toLocaleString(),
-            priority: data.priority,
-            status: "in-progress",
-            tests: data.tests
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean),
-          };
-          setLabOrders([newOrder, ...labOrders]);
-        }}
-        patients={patientOptions}
-      />
-      <CreateERoundModal
-        isOpen={createERoundOpen}
-        onClose={() => setCreateERoundOpen(false)}
-        onSave={(data) => {
-          const newRound: ERound = {
-            id: `er-${eRounds.length + 1}`,
-            title: `Daily Progress - ${data.date}`,
-            patient: patient.name,
-            patientMrn: patient.mrn,
-            doctor: "Dr. Sarah Johnson",
-            date: data.date,
-            vitals: {
-              temperature: data.vitals.temperature || undefined,
-              bp: data.vitals.bp || undefined,
-              heartRate: data.vitals.heartRate || undefined,
-              respRate: data.vitals.respRate || undefined,
-              o2Sat: data.vitals.o2Sat || undefined,
-            },
-            assessment: data.assessment,
-            plan: data.plan,
-          };
-          setERounds([newRound, ...eRounds]);
-        }}
-        patients={patientOptions}
+            isOpen={createLabOpen}
+            onClose={() => setCreateLabOpen(false)}
+            onSave={handleSaveLabOrder}
+            patients={[{ label: patient.name, value: patient.mrn }]}
       />
     </>
   );
 };
+
 
 export default PatientDetail;

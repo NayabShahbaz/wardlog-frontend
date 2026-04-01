@@ -11,6 +11,11 @@ import {
   HiOutlineUsers,
 } from "react-icons/hi2";
 
+export interface UserContextType {
+  userName: string;
+  userRole: string;
+}
+
 interface DoctorLayoutProps extends PropsWithChildren {
   userName?: string;
   userRole?: string;
@@ -24,26 +29,29 @@ const DoctorLayout = ({
   const navigate = useNavigate();
   const location = useLocation();
 
+  const basePath = location.pathname.startsWith('/nurse') ? '/nurse' : '/doctor'; //so it works for both doctor and nurse layouts without duplication
+
+  // UNIVERSAL NAVIGATION CONFIG
   const defaultNavItems: NavItem[] = [
-    { label: "Dashboard", icon: HiOutlineClipboard, path: "/doctor/dashboard" },
-    { label: "Patients", icon: HiOutlineUsers, path: "/doctor/patients" },
+    { label: "Dashboard", icon: HiOutlineClipboard, path: `${basePath}/dashboard` },
+    { label: "Patients", icon: HiOutlineUsers, path: `${basePath}/patients` },
     {
       label: "Clinical Docs",
       icon: HiOutlineDocumentText,
-      path: "/doctor/clinical-docs",
+      path: `${basePath}/clinical-docs`,
     },
     {
       label: "Ward Coordination",
       icon: HiOutlineCalendarDays,
-      path: "/doctor/ward-dashboard",
+      path: `${basePath}/ward-dashboard`,
     },
-    { label: "NoticeBoard", icon: HiOutlineBell, path: "/doctor/noticeboard" },
-    { label: "Tasks", icon: HiOutlineCheckCircle, path: "/doctor/tasks" },
-    { label: "Roster", icon: HiOutlineCalendarDays, path: "/doctor/roster" },
+    { label: "NoticeBoard", icon: HiOutlineBell, path: `${basePath}/noticeboard` },
+    { label: "Tasks", icon: HiOutlineCheckCircle, path: `${basePath}/tasks` },
+    { label: "Roster", icon: HiOutlineCalendarDays, path: `${basePath}/roster` },
     {
       label: "Staff Directory",
       icon: HiOutlineUserGroup,
-      path: "/doctor/staff-directory",
+      path: `${basePath}/directory`,
     },
   ].map((item) => ({
     ...item,
@@ -61,7 +69,7 @@ const DoctorLayout = ({
       />
 
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
-        {children ?? <Outlet />}
+        {children ?? <Outlet context={{ userName, userRole } satisfies UserContextType} />}
       </main>
     </div>
   );

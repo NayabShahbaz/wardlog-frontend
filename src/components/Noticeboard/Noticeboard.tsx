@@ -4,6 +4,8 @@ import { NoticeCard } from "../ui";
 import Modal from "../ui/Modal";
 import { InputField, SelectField } from "../ui";
 import type { Notice } from "../ui/NoticeCard";
+import { useOutletContext } from "react-router-dom"; 
+import { type UserContextType } from "../layout/DoctorLayout";
 
 const MOCK_NOTICES = [
   {
@@ -28,12 +30,13 @@ const MOCK_NOTICES = [
 ];
 
 export default function NoticeboardPage() {
+  const { userName, userRole } = useOutletContext<UserContextType>(); // 1. Get Dynamic Context
   const [notices, setNotices] = useState(MOCK_NOTICES);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // NEW: Error state for inline validation
   const [error, setError] = useState<string | null>(null);
 
-  const currentUser = { name: "Dr. Sarah Johnson", role: "doctor" };
+  const currentUser = { name: userName, role: userRole.toLowerCase() };
 
   const [formData, setFormData] = useState({
     title: "",

@@ -37,7 +37,7 @@ const Navbar: React.FC<NavbarProps> = ({
         {/* 1. Leftmost Logo (Navigation to Dashboard) */}
         <div className="shrink-0">
           <Link
-            to="/doctor/dashboard"
+            to={userRole === "Nurse" ? "/nurse/dashboard" : "/doctor/dashboard"}
             className="hover:opacity-80 transition-opacity block"
           >
             <Logo size="md" />

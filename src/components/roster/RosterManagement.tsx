@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useOutletContext } from "react-router-dom";
+import { type UserContextType } from "../layout/DoctorLayout";
 import {
   HiOutlineArrowsRightLeft,
   HiOutlineCalendarDays,
@@ -43,27 +45,7 @@ const mockSchedule: DayScheduleData[] = [
   },
 ];
 
-interface MyShift {
-  id: string;
-  date: string;
-  shift: string;
-  ward: string;
-}
 
-const mockMyShifts: MyShift[] = [
-  {
-    id: "ms1",
-    date: "Friday, March 13, 2026",
-    shift: "Morning",
-    ward: "Ward A",
-  },
-  {
-    id: "ms2",
-    date: "Saturday, March 14, 2026",
-    shift: "Afternoon",
-    ward: "Ward A",
-  },
-];
 
 const initialSwapRequests: SwapRequest[] = [];
 
@@ -81,14 +63,27 @@ const staffOptions = [
 
 // ── Component ───────────────────────────────────────────────────────
 const RosterManagement = () => {
+  const { userName } = useOutletContext<UserContextType>();
   const [activeTab, setActiveTab] = useState(0);
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapRequests, setSwapRequests] =
     useState<SwapRequest[]>(initialSwapRequests);
 
+  // Create a dynamic list of shifts by searching the mockSchedule
+  const myActualShifts = mockSchedule.flatMap(day => {
+    const allShifts = [
+      ...day.morning.map(s => ({ ...s, shift: "Morning", date: day.date })),
+      ...day.afternoon.map(s => ({ ...s, shift: "Afternoon", date: day.date })),
+      ...day.night.map(s => ({ ...s, shift: "Night", date: day.date }))
+    ];
+    return allShifts.filter(s => s.name === userName);
+  });
+
+  
+
   const tabs = [
     { label: "Schedule" },
-    { label: "My Shifts", count: mockMyShifts.length },
+    { label: "My Shifts", count: myActualShifts.length },
     { label: "Swap Requests", count: swapRequests.length },
   ];
 
@@ -142,8 +137,8 @@ const RosterManagement = () => {
       {/* My Shifts Tab */}
       {activeTab === 1 && (
         <div className="space-y-3">
-          {mockMyShifts.length > 0 ? (
-            mockMyShifts.map((shift) => (
+          {myActualShifts.length > 0 ? (
+            myActualShifts.map((shift) => (
               <div
                 key={shift.id}
                 className="bg-white rounded-xl p-4 flex items-center justify-between"

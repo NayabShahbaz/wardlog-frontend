@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext} from "react-router-dom";
 import {
   HiOutlinePencilSquare,
   HiOutlineEye,
@@ -17,6 +17,8 @@ import {
 } from "../ui";
 import Tabs from "../ui/Tabs";
 import type { Column } from "../ui/DataTable";
+import { type UserContextType } from "../layout/DoctorLayout";
+
 
 // ── Types ───────────────────────────────────────────────────────────
 interface Patient {
@@ -41,7 +43,7 @@ interface Patient {
   appointmentDate?: string;
 }
 
-const currentDoctor = "Dr. Sarah Johnson";
+
 const currentWard = "Ward A";
 
 const teamNurses = [
@@ -175,7 +177,9 @@ const wardOptions = [
 ];
 
 const PatientManagement = () => {
+  const { userName, userRole } = useOutletContext<UserContextType>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState(0);
@@ -197,7 +201,12 @@ const PatientManagement = () => {
     });
 
   const myPatients = activeFilter(
-    patients.filter((p) => p.assignedDoctor === currentDoctor),
+    patients.filter((p) => {
+      if (userRole === "Nurse") {
+        return p.assignedNurse === userName;
+      }
+      return p.assignedDoctor === userName;
+    }),
   );
 
   // ── Modified Filter ────────────────────────────────────────────────
@@ -205,7 +214,7 @@ const PatientManagement = () => {
     patients.filter(
       (p) =>
         p.patientType === "inpatient" && // Ensures only inpatients show in Ward view
-        (p.ward === currentWard || p.assignedDoctor === currentDoctor),
+        (p.ward === currentWard || p.assignedDoctor === userName),
     ),
   );
 
@@ -266,6 +275,9 @@ const PatientManagement = () => {
     setPatients(
       patients.map((p) => (p.mrn === mrn ? { ...p, status: "discharged" } : p)),
     );
+    
+   // This "broadcasts" the discharge event to the whole app
+window.dispatchEvent(new CustomEvent("patientDischarged", { detail: { mrn } }));
     setDischargeConfirm(null);
   };
 
@@ -334,48 +346,60 @@ const PatientManagement = () => {
     {
       key: "actions",
       header: "Actions",
-      render: (row: unknown) => (
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => navigate(`/doctor/patients/${(row as Patient).mrn}`)}
-            className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
-            title="View"
-          >
-            <HiOutlineEye className="w-4 h-4" />
-          </button>
-          {(row as Patient).assignedDoctor === currentDoctor && (
-            <>
+      render: (row: unknown) => {
+        const patient = row as Patient;
+        const basePath = location.pathname.startsWith('/nurse') ? '/nurse' : '/doctor';
+        
+        // 1. Define who can see the Edit button
+        const canEdit = patient.assignedDoctor === userName || userRole === "Nurse";
+
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navigate(`${basePath}/patients/${patient.mrn}`)}
+              className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
+              title="View"
+            >
+              <HiOutlineEye className="w-4 h-4" />
+            </button>
+
+            {/* 2. Changed condition: Allow if user is the assigned doctor OR a Nurse */}
+            {canEdit && (
               <button
-                onClick={() => handleEdit(row as Patient)}
+                onClick={() => handleEdit(patient)}
                 className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
                 title="Edit"
               >
                 <HiOutlinePencilSquare className="w-4 h-4" />
               </button>
-              {(row as Patient).patientType === "inpatient" &&
-                (row as Patient).status === "admitted" && (
+            )}
+
+            {/* Restrict Discharge/Complete to Doctors only */}
+            {userRole === "Doctor" && patient.assignedDoctor === userName && (
+              <>
+                {patient.patientType === "inpatient" && patient.status === "admitted" && (
                   <button
-                    onClick={() => setDischargeConfirm((row as Patient).mrn)}
+                    onClick={() => setDischargeConfirm(patient.mrn)}
                     className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                     title="Discharge"
                   >
                     <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
                   </button>
                 )}
-              {(row as Patient).patientType === "outpatient" &&
-                (row as Patient).status === "outpatient" && (
+                {patient.patientType === "outpatient" && patient.status === "outpatient" && (
                   <button
-                    onClick={() => setCompleteConfirm((row as Patient).mrn)}
+                    onClick={() => setCompleteConfirm(patient.mrn)}
                     className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                     title="Complete"
                   >
                     <HiOutlineCheckCircle className="w-4 h-4" />
                   </button>
                 )}
-            </>
-          )}
-        </div>
-      ),
+              </>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

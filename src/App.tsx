@@ -18,6 +18,7 @@ import AdminRoster from "./components/admin/AdminRoster";
 import AdminNoticeboard from "./components/admin/AdminNoticeboard";
 import AdminSettings from "./components/admin/AdminSettings";
 
+import NurseDashboard from "./components/dashboard/NursesDashboard";
 function App() {
   return (
     <BrowserRouter>
@@ -37,7 +38,7 @@ function App() {
           <Route path="noticeboard" element={<Noticeboard />} />
           <Route path="tasks" element={<TaskPage />} />
           <Route path="roster" element={<RosterManagement />} />
-          <Route path="staff-directory" element={<StaffDirectory />} />
+          <Route path="directory" element={<StaffDirectory />} />
         </Route>
 
         {/* Admin Routes - NESTED inside AdminLayout */}
@@ -49,6 +50,23 @@ function App() {
           <Route path="staff-directory" element={<AdminStaffDirectory />} />
           <Route path="noticeboard" element={<AdminNoticeboard />} />
           <Route path="settings" element={<AdminSettings />} />
+        </Route>
+
+        {/* Nurse Routes*/}
+        <Route 
+          path="/nurse" 
+          element={<DoctorLayout userName="Nurse Jane Doe" userRole="Nurse" />}
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<NurseDashboard/>} />
+          <Route path="patients" element={<PatientManagement />} />
+          <Route path="patients/:mrn" element={<PatientDetail />} />
+          <Route path="clinical-docs" element={<ClinicalDocumentation />} />
+          <Route path="ward-dashboard" element={<WardDash />} />
+          <Route path="noticeboard" element={<Noticeboard />} />
+          <Route path="tasks" element={<TaskPage />} />
+          <Route path="roster" element={<RosterManagement />} />
+          <Route path="directory" element={<StaffDirectory />} />
         </Route>
 
         {/* Catch-all: redirect any unknown routes to login */}
