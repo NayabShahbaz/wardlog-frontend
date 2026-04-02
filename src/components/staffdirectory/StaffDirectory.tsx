@@ -106,8 +106,6 @@ const StaffDirectory = () => {
           <span className="text-sm text-gray-500">
             Contact information for all hospital staff
           </span>
-          <span className="text-sm text-gray-400">Apr 1, 2025</span>
-          <span className="text-sm text-gray-400">9:41 AM</span>
         </div>
       </div>
 

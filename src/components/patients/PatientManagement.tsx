@@ -414,8 +414,6 @@ window.dispatchEvent(new CustomEvent("patientDischarged", { detail: { mrn } }));
             <span className="text-sm text-gray-500">
               View and manage your patient records
             </span>
-            <span className="text-sm text-gray-400">Apr 1, 2026</span>
-            <span className="text-sm text-gray-400">9:41 AM</span>
           </div>
         </div>
       </div>

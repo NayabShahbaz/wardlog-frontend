@@ -27,10 +27,6 @@ const WardDashboard = () => {
           <p className="text-sm text-gray-500">
             Overview of ward activities and resources
           </p>
-          {/* Using a background chip style for the date as seen in Figma */}
-          <span className="bg-gray-100 px-2 py-0.5 rounded text-xs text-gray-400">
-            Apr 1, 2025 9:41 AM
-          </span>
         </div>
       </div>
 

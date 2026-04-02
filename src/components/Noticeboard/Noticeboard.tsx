@@ -89,14 +89,7 @@ export default function NoticeboardPage() {
             <p className="text-sm text-gray-500">
               Important announcements and updates
             </p>
-            <div className="flex items-center gap-2">
-              <span className="bg-gray-200 px-2 py-0.5 rounded text-[10px] text-gray-500 font-medium">
-                Apr 1, 2026
-              </span>
-              <span className="bg-gray-200 px-2 py-0.5 rounded text-[10px] text-gray-500 font-medium">
-                11:41 AM
-              </span>
-            </div>
+            
           </div>
         </div>
 

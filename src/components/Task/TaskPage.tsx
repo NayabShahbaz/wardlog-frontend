@@ -199,11 +199,7 @@ export default function TaskPage() {
             <span className="text-gray-500">
               Create, assign and track tasks
             </span>
-            <div className="flex items-center gap-2 text-gray-400">
-              <span className="hidden sm:inline">•</span>
-              <span>Apr 1, 2026</span>
-              <span>11:41 AM</span>
-            </div>
+    
           </div>
         </div>
 

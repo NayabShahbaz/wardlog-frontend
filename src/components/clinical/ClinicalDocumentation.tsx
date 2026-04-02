@@ -196,14 +196,7 @@ const ClinicalDocumentation = () => {
           </h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
             <span>Manage notes, orders, and rounds</span>
-            <div className="flex items-center gap-2">
-              <span className="bg-gray-100 px-2 py-0.5 rounded text-[10px]">
-                Apr 2, 2026
-              </span>
-              <span className="bg-gray-100 px-2 py-0.5 rounded text-[10px]">
-                11:50 AM
-              </span>
-            </div>
+            
           </div>
         </div>
       </div>
