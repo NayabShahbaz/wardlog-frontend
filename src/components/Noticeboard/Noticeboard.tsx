@@ -52,6 +52,7 @@ export default function NoticeboardPage() {
 
     const newNotice = {
       ...formData,
+      // eslint-disable-next-line react-hooks/purity
       id: `notice-${Date.now()}`,
       postedBy: currentUser.name,
       postedAt: new Date().toLocaleString(),
