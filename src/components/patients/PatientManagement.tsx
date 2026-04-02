@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate, useOutletContext} from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import {
   HiOutlinePencilSquare,
   HiOutlineEye,
@@ -19,9 +19,9 @@ import Tabs from "../ui/Tabs";
 import type { Column } from "../ui/DataTable";
 import { type UserContextType } from "../layout/DoctorLayout";
 
-
 // ── Types ───────────────────────────────────────────────────────────
 interface Patient {
+  [key: string]: string | undefined;
   mrn: string;
   name: string;
   diagnosis: string;
@@ -42,7 +42,6 @@ interface Patient {
   patientType: "inpatient" | "outpatient";
   appointmentDate?: string;
 }
-
 
 const currentWard = "Ward A";
 
@@ -189,7 +188,6 @@ const PatientManagement = () => {
   const [completeConfirm, setCompleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  // Only active patients (hide discharged/completed, outpatients within 3 days)
   const activeFilter = (list: Patient[]) =>
     list.filter((p) => {
       if (p.status === "discharged" || p.status === "completed") return false;
@@ -202,18 +200,15 @@ const PatientManagement = () => {
 
   const myPatients = activeFilter(
     patients.filter((p) => {
-      if (userRole === "Nurse") {
-        return p.assignedNurse === userName;
-      }
+      if (userRole === "Nurse") return p.assignedNurse === userName;
       return p.assignedDoctor === userName;
     }),
   );
 
-  // ── Modified Filter ────────────────────────────────────────────────
   const wardPatients = activeFilter(
     patients.filter(
       (p) =>
-        p.patientType === "inpatient" && // Ensures only inpatients show in Ward view
+        p.patientType === "inpatient" &&
         (p.ward === currentWard || p.assignedDoctor === userName),
     ),
   );
@@ -275,9 +270,9 @@ const PatientManagement = () => {
     setPatients(
       patients.map((p) => (p.mrn === mrn ? { ...p, status: "discharged" } : p)),
     );
-    
-   // This "broadcasts" the discharge event to the whole app
-window.dispatchEvent(new CustomEvent("patientDischarged", { detail: { mrn } }));
+    window.dispatchEvent(
+      new CustomEvent("patientDischarged", { detail: { mrn } }),
+    );
     setDischargeConfirm(null);
   };
 
@@ -293,108 +288,119 @@ window.dispatchEvent(new CustomEvent("patientDischarged", { detail: { mrn } }));
     {
       key: "name",
       header: "Patient",
-      render: (row: unknown) => (
-        <div>
-          <p className="font-semibold text-gray-900">{(row as Patient).name}</p>
-          <p className="text-xs text-gray-400">{(row as Patient).diagnosis}</p>
-        </div>
-      ),
+      render: (row: unknown) => {
+        const patient = row as Patient;
+        return (
+          <div>
+            <p className="font-semibold text-gray-900">{patient.name}</p>
+            <p className="text-xs text-gray-400">{patient.diagnosis}</p>
+          </div>
+        );
+      },
     },
     {
       key: "patientType",
       header: "Type",
-      render: (row: unknown) => (
-        <Badge
-          text={(row as Patient).patientType}
-          variant={
-            (row as Patient).patientType === "inpatient" ? "dark" : "outline"
-          }
-        />
-      ),
+      render: (row: unknown) => {
+        const patient = row as Patient;
+        return (
+          <Badge
+            text={patient.patientType}
+            variant={patient.patientType === "inpatient" ? "dark" : "outline"}
+          />
+        );
+      },
     },
     {
       key: "assignedNurse",
       header: "Nurse",
-      render: (row: unknown) => (
-        <span className="text-sm text-gray-600">
-          {(row as Patient).assignedNurse || "—"}
-        </span>
-      ),
+      render: (row: unknown) => {
+        const patient = row as Patient;
+        return (
+          <span className="text-sm text-gray-600">
+            {patient.assignedNurse || "—"}
+          </span>
+        );
+      },
     },
     {
       key: "location",
       header: "Location",
-      render: (row: unknown) => (
-        <span className="text-sm text-gray-700">
-          {(row as Patient).patientType === "outpatient" &&
-          (row as Patient).appointmentDate
-            ? `Appt: ${(row as Patient).appointmentDate}`
-            : (row as Patient).location}
-        </span>
-      ),
+      render: (row: unknown) => {
+        const patient = row as Patient;
+        return (
+          <span className="text-sm text-gray-700">
+            {patient.patientType === "outpatient" && patient.appointmentDate
+              ? `Appt: ${patient.appointmentDate}`
+              : patient.location}
+          </span>
+        );
+      },
     },
     {
       key: "status",
       header: "Status",
-      render: (row: unknown) => (
-        <Badge
-          text={(row as Patient).status}
-          variant={statusVariant[(row as Patient).status] || "gray"}
-        />
-      ),
+      render: (row: unknown) => {
+        const patient = row as Patient;
+        return (
+          <Badge
+            text={patient.status}
+            variant={statusVariant[patient.status] || "gray"}
+          />
+        );
+      },
     },
     {
       key: "actions",
       header: "Actions",
       render: (row: unknown) => {
         const patient = row as Patient;
-        const basePath = location.pathname.startsWith('/nurse') ? '/nurse' : '/doctor';
-        
-        // 1. Define who can see the Edit button
-        const canEdit = patient.assignedDoctor === userName || userRole === "Nurse";
+        const basePath = location.pathname.startsWith("/nurse")
+          ? "/nurse"
+          : "/doctor";
+        const canEdit =
+          patient.assignedDoctor === userName || userRole === "Nurse";
 
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => navigate(`${basePath}/patients/${patient.mrn}`)}
-              className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
+              className="p-1 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded transition-colors"
               title="View"
             >
-              <HiOutlineEye className="w-4 h-4" />
+              <HiOutlineEye className="w-3.5 h-3.5" />
             </button>
-
-            {/* 2. Changed condition: Allow if user is the assigned doctor OR a Nurse */}
             {canEdit && (
               <button
                 onClick={() => handleEdit(patient)}
-                className="p-1.5 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-lg transition-colors"
+                className="p-1 text-gray-500 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded transition-colors"
                 title="Edit"
               >
-                <HiOutlinePencilSquare className="w-4 h-4" />
+                <HiOutlinePencilSquare className="w-3.5 h-3.5" />
               </button>
             )}
-
-            {/* Restrict Discharge/Complete to Doctors only */}
             {userRole === "Doctor" && patient.assignedDoctor === userName && (
               <>
-                {patient.patientType === "inpatient" && patient.status === "admitted" && (
-                  <button
-                    onClick={() => setDischargeConfirm(patient.mrn)}
-                    className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                    title="Discharge"
-                  >
-                    <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
-                  </button>
-                )}
-                {patient.patientType === "outpatient" && patient.status === "outpatient" && (
-                  <button
-                    onClick={() => setCompleteConfirm(patient.mrn)}
-                    className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                    title="Complete"
-                  >
-                    <HiOutlineCheckCircle className="w-4 h-4" />
-                  </button>
-                )}
+                {patient.patientType === "inpatient" &&
+                  patient.status === "admitted" && (
+                    <button
+                      onClick={() => setDischargeConfirm(patient.mrn)}
+                      className="p-1 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                      title="Discharge"
+                    >
+                      <HiOutlineArrowRightOnRectangle className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                {patient.patientType === "outpatient" &&
+                  patient.status === "outpatient" && (
+                    <button
+                      onClick={() => setCompleteConfirm(patient.mrn)}
+                      className="p-1 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                      title="Complete"
+                    >
+                      <HiOutlineCheckCircle className="w-3.5 h-3.5" />
+                    </button>
+                  )}
               </>
             )}
           </div>
@@ -405,24 +411,25 @@ window.dispatchEvent(new CustomEvent("patientDischarged", { detail: { mrn } }));
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
             Patient Management
           </h1>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="text-sm text-gray-500">
-              View and manage your patient records
-            </span>
-          </div>
+          <p className="text-sm text-gray-500 mt-1">
+            View and manage your patient records
+          </p>
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="mb-4">
         <Tabs tabs={tabs} activeIndex={activeTab} onChange={setActiveTab} />
       </div>
 
-      <div className="mb-6">
+      {/* Search */}
+      <div className="mb-4 sm:mb-6">
         <SearchBar
           value={search}
           onChange={setSearch}
@@ -430,6 +437,7 @@ window.dispatchEvent(new CustomEvent("patientDischarged", { detail: { mrn } }));
         />
       </div>
 
+      {/* Table */}
       <DataTable columns={columns} data={filtered} keyField="mrn" />
 
       {/* Update Modal */}

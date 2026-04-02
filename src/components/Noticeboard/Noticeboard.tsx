@@ -89,7 +89,6 @@ export default function NoticeboardPage() {
             <p className="text-sm text-gray-500">
               Important announcements and updates
             </p>
-            
           </div>
         </div>
 
