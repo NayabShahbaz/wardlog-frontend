@@ -1,6 +1,10 @@
 import React from "react";
 import { Badge } from "../ui";
-import { HiOutlineCheckCircle } from "react-icons/hi2";
+import {
+  HiOutlineCheckCircle,
+  HiOutlineTrash,
+  HiOutlinePencilSquare,
+} from "react-icons/hi2";
 
 export interface Task {
   id: string;
@@ -37,16 +41,19 @@ interface TaskCardProps {
   task: Task;
   onComplete?: (id: string) => void;
   isOwnTask?: boolean;
-
   onDelete?: () => void;
   onEdit?: () => void;
   canManage?: boolean;
 }
 
-
-
-const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, isOwnTask , onDelete, onEdit,
-  canManage}) => {
+const TaskCard: React.FC<TaskCardProps> = ({
+  task,
+  onComplete,
+  isOwnTask,
+  onDelete,
+  onEdit,
+  canManage,
+}) => {
   const canComplete = isOwnTask && task.status !== "completed" && onComplete;
 
   return (
@@ -72,39 +79,73 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, isOwnTask , onDel
           <Badge text={task.status} variant={statusMap[task.status]} />
         </div>
 
-       <div className="flex items-center gap-3">
-    {canComplete && (
-      <button
-        onClick={() => onComplete(task.id)}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-        style={{
-          borderWidth: "1px",
-          borderStyle: "solid",
-          borderColor: "#bbf7d0",
-        }}
-      >
-        <HiOutlineCheckCircle className="w-4 h-4" />
-        Mark Complete
-      </button>
-    )}
+        <div className="flex items-center gap-2">
+          {/* Mark Complete - own tasks that aren't done */}
+          {canComplete && (
+            <button
+              onClick={() => onComplete(task.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+              style={{
+                borderWidth: "1px",
+                borderStyle: "solid",
+                borderColor: "#bbf7d0",
+              }}
+            >
+              <HiOutlineCheckCircle className="w-4 h-4" />
+              Mark Complete
+            </button>
+          )}
 
-    {/* This button will only show if status is exactly "completed" */}
-    {task.status === "completed" && isOwnTask && onDelete && (
-      <button 
-        onClick={onDelete} 
-        className="text-red-600 text-xs font-bold hover:underline"
-      >
-        Delete Task
-      </button>
-    )}
+          {/* Delete - own completed tasks */}
+          {task.status === "completed" && isOwnTask && onDelete && (
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+              style={{
+                borderWidth: "1px",
+                borderStyle: "solid",
+                borderColor: "#fecaca",
+              }}
+            >
+              <HiOutlineTrash className="w-4 h-4" />
+              Delete Task
+            </button>
+          )}
 
-    {canManage && (
-      <div className="flex gap-2">
-        <button onClick={onEdit} className="text-blue-600 text-xs font-bold hover:underline">Edit</button>
-        <button onClick={onDelete} className="text-red-600 text-xs font-bold hover:underline">Delete</button>
-      </div>
-    )}
-    </div>
+          {/* Edit & Delete - doctor managing assigned tasks */}
+          {canManage && (
+            <>
+              {onEdit && (
+                <button
+                  onClick={onEdit}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#1a5276] bg-[#e8f0f6] rounded-lg hover:bg-[#d6e8ee] transition-colors"
+                  style={{
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#bdd5e7",
+                  }}
+                >
+                  <HiOutlinePencilSquare className="w-4 h-4" />
+                  Edit
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={onDelete}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                  style={{
+                    borderWidth: "1px",
+                    borderStyle: "solid",
+                    borderColor: "#fecaca",
+                  }}
+                >
+                  <HiOutlineTrash className="w-4 h-4" />
+                  Delete
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

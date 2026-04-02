@@ -50,7 +50,7 @@ const ERoundsSection: React.FC<{
         {onRecordRound && (
           <button
             onClick={onRecordRound}
-            className="flex items-center gap-1.5 px-4 py-2 bg-black text-white text-sm font-bold rounded-xl transition-all hover:bg-gray-800 shadow-md"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#1a5276] text-white text-sm font-bold rounded-xl transition-all hover:bg-gray-800 shadow-md"
           >
             <HiOutlinePlus className="w-5 h-5" /> Record E-Round
           </button>

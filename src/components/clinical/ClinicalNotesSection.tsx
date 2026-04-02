@@ -19,7 +19,7 @@ const ClinicalNotesSection: React.FC<ClinicalNotesSectionProps> = ({
         {onCreateNote && (
           <button
             onClick={onCreateNote}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#1a5276] text-white text-sm font-bold rounded-xl transition-all hover:bg-gray-800 shadow-md"
           >
             <HiOutlinePlus className="w-4 h-4" />
             Create Note

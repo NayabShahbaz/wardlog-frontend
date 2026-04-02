@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { HiOutlinePlus } from "react-icons/hi2";
-import { NoticeCard } from "../ui";
-import Modal from "../ui/Modal";
-import { InputField, SelectField } from "../ui";
-import type { Notice } from "../ui/NoticeCard";
-import { useOutletContext } from "react-router-dom"; 
+import { useOutletContext } from "react-router-dom";
 import { type UserContextType } from "../layout/DoctorLayout";
+
+import { NoticeCard, Modal, InputField, SelectField } from "../ui";
+import { HiOutlinePlus } from "react-icons/hi2";
+import type { Notice } from "../ui/NoticeCard";
 
 const MOCK_NOTICES = [
   {
@@ -30,10 +29,9 @@ const MOCK_NOTICES = [
 ];
 
 export default function NoticeboardPage() {
-  const { userName, userRole } = useOutletContext<UserContextType>(); // 1. Get Dynamic Context
+  const { userName, userRole } = useOutletContext<UserContextType>();
   const [notices, setNotices] = useState(MOCK_NOTICES);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // NEW: Error state for inline validation
   const [error, setError] = useState<string | null>(null);
 
   const currentUser = { name: userName, role: userRole.toLowerCase() };
@@ -45,8 +43,8 @@ export default function NoticeboardPage() {
     expiresAt: "",
   });
 
+  // ── Handlers ───────────────────────────────────────────────────
   const handlePost = () => {
-    // UPDATED: Inline validation instead of window.alert
     if (!formData.title.trim() || !formData.content.trim()) {
       setError("Please provide both a title and content for the notice.");
       return;
@@ -60,8 +58,7 @@ export default function NoticeboardPage() {
     };
 
     setNotices([newNotice, ...notices]);
-    setIsModalOpen(false);
-    setError(null); // Clear error on success
+    closeModal();
     setFormData({
       title: "",
       content: "",
@@ -71,77 +68,85 @@ export default function NoticeboardPage() {
   };
 
   const deleteNotice = (id: string) => {
-    {
-      setNotices(notices.filter((n) => n.id !== id));
-    }
+    setNotices(notices.filter((n) => n.id !== id));
   };
 
-  // Helper to close modal and reset error
   const closeModal = () => {
     setIsModalOpen(false);
     setError(null);
   };
 
   return (
-    <>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
+    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-0">
+      {/* ── Header: Responsive Alignment ────────────────────────── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+        <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
             Noticeboard
           </h1>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <p className="text-sm text-gray-500">
               Important announcements and updates
             </p>
-            <span className="bg-gray-200 px-2 py-0.5 rounded text-[10px] text-gray-500 font-medium">
-              Apr 1, 2025
-            </span>
-            <span className="bg-gray-200 px-2 py-0.5 rounded text-[10px] text-gray-500 font-medium">
-              9:41 AM
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="bg-gray-200 px-2 py-0.5 rounded text-[10px] text-gray-500 font-medium">
+                Apr 1, 2026
+              </span>
+              <span className="bg-gray-200 px-2 py-0.5 rounded text-[10px] text-gray-500 font-medium">
+                11:41 AM
+              </span>
+            </div>
           </div>
         </div>
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] transition-all shadow-md"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] active:scale-[0.98] transition-all shadow-md w-full sm:w-auto"
         >
           <HiOutlinePlus className="w-5 h-5" />
-          Post Notice
+          <span>Post Notice</span>
         </button>
       </div>
 
+      {/* ── Notice List ───────────────────────────────────────────── */}
       <div className="max-w-4xl space-y-4">
-        {notices.map((notice) => (
-          <NoticeCard
-            key={notice.id}
-            notice={notice as Notice}
-            isAdmin={
-              currentUser.role === "admin" ||
-              notice.postedBy === currentUser.name
-            }
-            onDelete={deleteNotice}
-          />
-        ))}
+        {notices.length > 0 ? (
+          notices.map((notice) => (
+            <NoticeCard
+              key={notice.id}
+              notice={notice as Notice}
+              isAdmin={
+                currentUser.role === "admin" ||
+                notice.postedBy === currentUser.name
+              }
+              onDelete={deleteNotice}
+            />
+          ))
+        ) : (
+          <div className="bg-white rounded-2xl py-16 border border-gray-100 text-center shadow-sm">
+            <p className="text-gray-400 font-medium">No notices at this time</p>
+          </div>
+        )}
       </div>
 
+      {/* ── Modal: Optimized Form Layout ──────────────────────────── */}
       <Modal
         title="Post New Notice"
         isOpen={isModalOpen}
         onClose={closeModal}
         footer={
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 w-full sm:w-auto">
             <button
               type="button"
               onClick={closeModal}
-              className="px-6 py-2 text-sm font-bold text-gray-600 hover:text-gray-800"
+              className="order-2 sm:order-1 px-6 py-2 text-sm font-bold text-gray-600 hover:text-gray-800"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handlePost}
-              className="px-6 py-2 bg-[#1a5276] text-white rounded-xl text-sm font-bold shadow-sm"
+              className="order-1 sm:order-2 px-6 py-2 bg-[#1a5276] text-white rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-transform"
             >
               Post Notice
             </button>
@@ -149,7 +154,6 @@ export default function NoticeboardPage() {
         }
       >
         <div className="space-y-4">
-          {/* NEW: Inline Error Display */}
           {error && (
             <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-2.5 rounded-xl text-sm font-medium">
               {error}
@@ -162,11 +166,13 @@ export default function NoticeboardPage() {
             value={formData.title}
             onChange={(v) => {
               setFormData({ ...formData, title: v });
-              if (error) setError(null); // Clear error while typing
+              if (error) setError(null);
             }}
             required
           />
-          <div className="grid grid-cols-2 gap-4">
+
+          {/* Responsive Grid: Stacks on mobile, side-by-side on tablet+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField
               label="Category"
               value={formData.category}
@@ -185,6 +191,7 @@ export default function NoticeboardPage() {
               onChange={(v) => setFormData({ ...formData, expiresAt: v })}
             />
           </div>
+
           <InputField
             label="Notice Content"
             placeholder="Describe the update in detail..."
@@ -193,12 +200,12 @@ export default function NoticeboardPage() {
             value={formData.content}
             onChange={(v) => {
               setFormData({ ...formData, content: v });
-              if (error) setError(null); // Clear error while typing
+              if (error) setError(null);
             }}
             required
           />
         </div>
       </Modal>
-    </>
+    </div>
   );
 }
