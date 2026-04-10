@@ -113,7 +113,7 @@ const RosterManagement = () => {
         </div>
         <button
           onClick={() => setSwapOpen(true)}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-[#1a5276] hover:bg-[#154360] rounded-lg transition-colors shrink-0"
+          className="flex items-center right gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-[#1a5276] hover:bg-[#154360] rounded-lg transition-colors shrink-0"
         >
           <HiOutlineArrowsRightLeft className="w-4 h-4" />
           Request Swap

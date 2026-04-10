@@ -1,20 +1,8 @@
 import { useState } from "react";
-import {
-  HiOutlinePlus,
-  HiOutlineTrash,
-  HiOutlineMegaphone,
-} from "react-icons/hi2";
-import { Badge, Modal, InputField, SelectField } from "../ui";
-
-interface Notice {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  author: string;
-  date: string;
-  priority: string;
-}
+import { HiOutlinePlus, HiOutlineMegaphone } from "react-icons/hi2";
+import { Modal, InputField, SelectField } from "../ui";
+import NoticeCard from "../ui/NoticeCard";
+import type { Notice } from "../ui/NoticeCard";
 
 const initialNotices: Notice[] = [
   {
@@ -73,16 +61,9 @@ const priorityOptions = [
   { label: "Low", value: "low" },
 ];
 
-const priorityVariant = (p: string) => {
-  if (p === "high") return "red" as const;
-  if (p === "medium") return "orange" as const;
-  return "gray" as const;
-};
-
 const AdminNoticeboard = () => {
   const [notices, setNotices] = useState<Notice[]>(initialNotices);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
@@ -102,7 +83,7 @@ const AdminNoticeboard = () => {
       return;
     }
     const newNotice: Notice = {
-      id: `n${notices.length + 1}`,
+      id: `n${Date.now()}`,
       title: formData.title,
       content: formData.content,
       category: formData.category,
@@ -118,7 +99,6 @@ const AdminNoticeboard = () => {
 
   const handleDelete = (id: string) => {
     setNotices(notices.filter((n) => n.id !== id));
-    setDeleteConfirm(null);
   };
 
   return (
@@ -144,42 +124,12 @@ const AdminNoticeboard = () => {
       {/* Notices List */}
       <div className="space-y-4">
         {notices.map((notice) => (
-          <div
+          <NoticeCard
             key={notice.id}
-            className="bg-white rounded-xl p-5"
-            style={{
-              borderWidth: "1px",
-              borderStyle: "solid",
-              borderColor: "#e5e7eb",
-            }}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="text-base font-bold text-gray-900">
-                  {notice.title}
-                </h3>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {notice.author} • {notice.date}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge text={notice.category} variant="outline" />
-                <Badge
-                  text={notice.priority}
-                  variant={priorityVariant(notice.priority)}
-                />
-                <button
-                  onClick={() => setDeleteConfirm(notice.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <HiOutlineTrash className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              {notice.content}
-            </p>
-          </div>
+            notice={notice}
+            showDelete
+            onDelete={handleDelete}
+          />
         ))}
 
         {notices.length === 0 && (
@@ -272,34 +222,6 @@ const AdminNoticeboard = () => {
             />
           </div>
         </div>
-      </Modal>
-
-      {/* Delete Confirmation */}
-      <Modal
-        title="Delete Notice"
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        footer={
-          <>
-            <button
-              onClick={() => setDeleteConfirm(null)}
-              className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-              className="px-5 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
-            >
-              Delete
-            </button>
-          </>
-        }
-      >
-        <p className="text-sm text-gray-600">
-          Are you sure you want to delete this notice? This action cannot be
-          undone.
-        </p>
       </Modal>
     </div>
   );

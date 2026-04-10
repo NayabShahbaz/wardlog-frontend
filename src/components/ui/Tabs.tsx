@@ -15,7 +15,7 @@ const Tabs: React.FC<TabsProps> = ({ tabs, activeIndex, onChange }) => {
   return (
     <div className="w-full flex justify-center mb-6">
       <div
-        className="w-full sm:w-[80%] flex rounded-full bg-gray-100 p-1"
+        className="w-full sm:w-[80%] flex rounded-full bg-gray-100 p-1 overflow-x-auto no-scrollbar"
         style={{
           borderWidth: "1px",
           borderStyle: "solid",
@@ -26,7 +26,7 @@ const Tabs: React.FC<TabsProps> = ({ tabs, activeIndex, onChange }) => {
           <button
             key={tab.label}
             onClick={() => onChange(i)}
-            className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-medium rounded-full transition-all duration-200
+            className={`flex-1 min-w-fit whitespace-nowrap px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium rounded-full transition-all duration-200
               ${
                 activeIndex === i
                   ? "bg-white text-gray-900 shadow-sm"
@@ -48,7 +48,7 @@ const Tabs: React.FC<TabsProps> = ({ tabs, activeIndex, onChange }) => {
           >
             {tab.label}
             {tab.count !== undefined && (
-              <span className="ml-1 text-[10px] sm:text-sm">({tab.count})</span>
+              <span className="ml-1 text-gray-400">({tab.count})</span>
             )}
           </button>
         ))}

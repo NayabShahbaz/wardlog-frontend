@@ -1,5 +1,4 @@
-import { useLocation, useOutletContext, useNavigate } from "react-router-dom"; 
-import { type UserContextType } from "../layout/DoctorLayout";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   HiOutlineUsers,
   HiOutlineCheckCircle,
@@ -14,7 +13,9 @@ const WardDashboard = () => {
   const location = useLocation();
   //const { userRole } = useOutletContext<UserContextType>();
 
-  const basePath = location.pathname.startsWith('/nurse') ? '/nurse' : '/doctor';
+  const basePath = location.pathname.startsWith("/nurse")
+    ? "/nurse"
+    : "/doctor";
 
   return (
     <div className="space-y-6">
