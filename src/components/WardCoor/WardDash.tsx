@@ -1,5 +1,5 @@
-import { useLocation, useOutletContext, useNavigate } from "react-router-dom"; 
-import { type UserContextType } from "../layout/DoctorLayout";
+import { useLocation, useNavigate } from "react-router-dom"; 
+
 import {
   HiOutlineUsers,
   HiOutlineCheckCircle,
