@@ -66,10 +66,6 @@ const ClinicalNoteCard: React.FC<ClinicalNoteCardProps> = ({ note }) => {
             {note.doctor} · {note.date}
           </p>
         </div>
-        <Badge
-          text={note.status}
-          variant={note.status === "Final" ? "dark" : "outline"}
-        />
       </div>
 
       {/* SOAP Sections */}

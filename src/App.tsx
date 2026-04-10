@@ -17,7 +17,7 @@ import AdminPatients from "./components/admin/AdminPatients";
 import AdminRoster from "./components/admin/AdminRoster";
 import AdminNoticeboard from "./components/admin/AdminNoticeboard";
 import AdminSettings from "./components/admin/AdminSettings";
-
+import NotificationsPage from "./components/notifications/NotificationsPage";
 import NurseDashboard from "./components/dashboard/NursesDashboard";
 function App() {
   return (
@@ -39,6 +39,7 @@ function App() {
           <Route path="tasks" element={<TaskPage />} />
           <Route path="roster" element={<RosterManagement />} />
           <Route path="directory" element={<StaffDirectory />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Admin Routes - NESTED inside AdminLayout */}
@@ -67,6 +68,7 @@ function App() {
           <Route path="tasks" element={<TaskPage />} />
           <Route path="roster" element={<RosterManagement />} />
           <Route path="directory" element={<StaffDirectory />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Catch-all: redirect any unknown routes to login */}

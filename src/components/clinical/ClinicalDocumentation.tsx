@@ -35,7 +35,6 @@ const initialNotes: ClinicalNote[] = [
     patientMrn: "MRN001234",
     doctor: "Dr. Sarah Johnson",
     date: "3/12/2029, 1:30:00 PM",
-    status: "Final",
     soap: {
       subjective: "Patient reports improved breathing, decreased cough",
       objective: "Temp 98.6°F, BP 120/80, RR 16, O2 sat 96% on room air",
@@ -132,7 +131,6 @@ const ClinicalDocumentation = () => {
       patientMrn: data.patientId,
       doctor: userName,
       date: new Date().toLocaleString(),
-      status: "Draft",
       soap:
         data.template === "progress" ? (data.fields as SOAPNote) : undefined,
     };
@@ -201,7 +199,7 @@ const ClinicalDocumentation = () => {
         </div>
       </div>
 
-      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="px-0 sm:px-0">
         <Tabs tabs={tabs} activeIndex={activeTab} onChange={setActiveTab} />
       </div>
 

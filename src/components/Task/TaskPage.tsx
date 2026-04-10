@@ -39,7 +39,7 @@ const INITIAL_TASKS: Task[] = [
     assignedTo: "Dr. Sarah Johnson",
     type: "Administrative",
     priority: "medium",
-    status: "in-progress",
+    status: "pending",
   },
   {
     id: "4",
@@ -226,7 +226,7 @@ export default function TaskPage() {
         />
         <StatCard
           label="In Progress"
-          value={statSource.filter((t) => t.status === "in-progress").length}
+          value={statSource.filter((t) => t.status === "pending").length}
           sub="Currently active"
           icon={HiOutlineClock}
           color="bg-blue-50"

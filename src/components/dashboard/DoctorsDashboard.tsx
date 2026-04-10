@@ -53,7 +53,7 @@ const myTasks = [
     id: "t2",
     title: "Update discharge summary",
     priority: "medium",
-    status: "in-progress",
+    status: "pending",
   },
   {
     id: "t3",

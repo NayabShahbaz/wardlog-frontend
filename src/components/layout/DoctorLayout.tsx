@@ -29,11 +29,16 @@ const DoctorLayout = ({
   const navigate = useNavigate();
   const location = useLocation();
 
-  const basePath = location.pathname.startsWith('/nurse') ? '/nurse' : '/doctor'; //so it works for both doctor and nurse layouts without duplication
+  const basePath = location.pathname.startsWith("/nurse")
+    ? "/nurse"
+    : "/doctor";
 
-  // UNIVERSAL NAVIGATION CONFIG
   const defaultNavItems: NavItem[] = [
-    { label: "Dashboard", icon: HiOutlineClipboard, path: `${basePath}/dashboard` },
+    {
+      label: "Dashboard",
+      icon: HiOutlineClipboard,
+      path: `${basePath}/dashboard`,
+    },
     { label: "Patients", icon: HiOutlineUsers, path: `${basePath}/patients` },
     {
       label: "Clinical Docs",
@@ -45,9 +50,25 @@ const DoctorLayout = ({
       icon: HiOutlineCalendarDays,
       path: `${basePath}/ward-dashboard`,
     },
-    { label: "NoticeBoard", icon: HiOutlineBell, path: `${basePath}/noticeboard` },
-    { label: "Tasks", icon: HiOutlineCheckCircle, path: `${basePath}/tasks` },
-    { label: "Roster", icon: HiOutlineCalendarDays, path: `${basePath}/roster` },
+    {
+      label: "NoticeBoard",
+      icon: HiOutlineBell,
+      path: `${basePath}/noticeboard`,
+    },
+    { label: "Tasks", 
+      icon: HiOutlineCheckCircle, 
+      path: `${basePath}/tasks` 
+    },
+    {
+      label: "Notifications",
+      icon: HiOutlineBell, // You can keep Bell here or use HiOutlineChatBubbleLeft
+      path: `${basePath}/notifications`,
+    },
+    {
+      label: "Roster",
+      icon: HiOutlineCalendarDays,
+      path: `${basePath}/roster`,
+    },
     {
       label: "Staff Directory",
       icon: HiOutlineUserGroup,
@@ -68,8 +89,10 @@ const DoctorLayout = ({
         onLogout={() => navigate("/login")}
       />
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
-        {children ?? <Outlet context={{ userName, userRole } satisfies UserContextType} />}
+      <main className="flex-1 w-full px-4 py-4 md:px-6 md:py-6 lg:px-8 xl:max-w-7xl xl:mx-auto">
+        {children ?? (
+          <Outlet context={{ userName, userRole } satisfies UserContextType} />
+        )}
       </main>
     </div>
   );

@@ -45,8 +45,6 @@ const mockSchedule: DayScheduleData[] = [
   },
 ];
 
-
-
 const initialSwapRequests: SwapRequest[] = [];
 
 const shiftOptions = [
@@ -70,16 +68,18 @@ const RosterManagement = () => {
     useState<SwapRequest[]>(initialSwapRequests);
 
   // Create a dynamic list of shifts by searching the mockSchedule
-  const myActualShifts = mockSchedule.flatMap(day => {
+  const myActualShifts = mockSchedule.flatMap((day) => {
     const allShifts = [
-      ...day.morning.map(s => ({ ...s, shift: "Morning", date: day.date })),
-      ...day.afternoon.map(s => ({ ...s, shift: "Afternoon", date: day.date })),
-      ...day.night.map(s => ({ ...s, shift: "Night", date: day.date }))
+      ...day.morning.map((s) => ({ ...s, shift: "Morning", date: day.date })),
+      ...day.afternoon.map((s) => ({
+        ...s,
+        shift: "Afternoon",
+        date: day.date,
+      })),
+      ...day.night.map((s) => ({ ...s, shift: "Night", date: day.date })),
     ];
-    return allShifts.filter(s => s.name === userName);
+    return allShifts.filter((s) => s.name === userName);
   });
-
-  
 
   const tabs = [
     { label: "Schedule" },
@@ -113,7 +113,7 @@ const RosterManagement = () => {
         </div>
         <button
           onClick={() => setSwapOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-[#1a5276] hover:bg-[#154360] rounded-lg transition-colors shrink-0"
+          className="flex items-center right gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-[#1a5276] hover:bg-[#154360] rounded-lg transition-colors shrink-0"
         >
           <HiOutlineArrowsRightLeft className="w-4 h-4" />
           Request Swap
