@@ -55,15 +55,7 @@ const DoctorLayout = ({
       icon: HiOutlineBell,
       path: `${basePath}/noticeboard`,
     },
-    { label: "Tasks", 
-      icon: HiOutlineCheckCircle, 
-      path: `${basePath}/tasks` 
-    },
-    {
-      label: "Notifications",
-      icon: HiOutlineBell, // You can keep Bell here or use HiOutlineChatBubbleLeft
-      path: `${basePath}/notifications`,
-    },
+    { label: "Tasks", icon: HiOutlineCheckCircle, path: `${basePath}/tasks` },
     {
       label: "Roster",
       icon: HiOutlineCalendarDays,

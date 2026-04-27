@@ -17,64 +17,67 @@ import AdminPatients from "./components/admin/AdminPatients";
 import AdminRoster from "./components/admin/AdminRoster";
 import AdminNoticeboard from "./components/admin/AdminNoticeboard";
 import AdminSettings from "./components/admin/AdminSettings";
-import NotificationsPage from "./components/notifications/NotificationsPage";
 import NurseDashboard from "./components/dashboard/NursesDashboard";
+import { NotificationProvider } from "./components/notifications/NotificationsContext";
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
+    <NotificationProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* Doctor Routes - NESTED inside DoctorLayout */}
-        <Route path="/doctor" element={<DoctorLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<DoctorDashboard />} />
-          <Route path="patients" element={<PatientManagement />} />
-          <Route path="patients/:mrn" element={<PatientDetail />} />
-          <Route path="clinical-docs" element={<ClinicalDocumentation />} />
-          <Route path="ward-dashboard" element={<WardDash />} />
-          <Route path="noticeboard" element={<Noticeboard />} />
-          <Route path="tasks" element={<TaskPage />} />
-          <Route path="roster" element={<RosterManagement />} />
-          <Route path="directory" element={<StaffDirectory />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-        </Route>
+          {/* Doctor Routes - NESTED inside DoctorLayout */}
+          <Route path="/doctor" element={<DoctorLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<DoctorDashboard />} />
+            <Route path="patients" element={<PatientManagement />} />
+            <Route path="patients/:mrn" element={<PatientDetail />} />
+            <Route path="clinical-docs" element={<ClinicalDocumentation />} />
+            <Route path="ward-dashboard" element={<WardDash />} />
+            <Route path="noticeboard" element={<Noticeboard />} />
+            <Route path="tasks" element={<TaskPage />} />
+            <Route path="roster" element={<RosterManagement />} />
+            <Route path="directory" element={<StaffDirectory />} />
+          </Route>
 
-        {/* Admin Routes - NESTED inside AdminLayout */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="patients" element={<AdminPatients />} />
-          <Route path="roster" element={<AdminRoster />} />
-          <Route path="staff-directory" element={<AdminStaffDirectory />} />
-          <Route path="noticeboard" element={<AdminNoticeboard />} />
-          <Route path="settings" element={<AdminSettings />} />
-        </Route>
+          {/* Admin Routes - NESTED inside AdminLayout */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="patients" element={<AdminPatients />} />
+            <Route path="roster" element={<AdminRoster />} />
+            <Route path="staff-directory" element={<AdminStaffDirectory />} />
+            <Route path="noticeboard" element={<AdminNoticeboard />} />
+            <Route path="settings" element={<AdminSettings />} />
+          </Route>
 
-        {/* Nurse Routes*/}
-        <Route 
-          path="/nurse" 
-          element={<DoctorLayout userName="Nurse Jane Doe" userRole="Nurse" />}
-        >
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<NurseDashboard/>} />
-          <Route path="patients" element={<PatientManagement />} />
-          <Route path="patients/:mrn" element={<PatientDetail />} />
-          <Route path="clinical-docs" element={<ClinicalDocumentation />} />
-          <Route path="ward-dashboard" element={<WardDash />} />
-          <Route path="noticeboard" element={<Noticeboard />} />
-          <Route path="tasks" element={<TaskPage />} />
-          <Route path="roster" element={<RosterManagement />} />
-          <Route path="directory" element={<StaffDirectory />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-        </Route>
+          {/* Nurse Routes*/}
+          <Route
+            path="/nurse"
+            element={
+              <DoctorLayout userName="Nurse Jane Doe" userRole="Nurse" />
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<NurseDashboard />} />
+            <Route path="patients" element={<PatientManagement />} />
+            <Route path="patients/:mrn" element={<PatientDetail />} />
+            <Route path="clinical-docs" element={<ClinicalDocumentation />} />
+            <Route path="ward-dashboard" element={<WardDash />} />
+            <Route path="noticeboard" element={<Noticeboard />} />
+            <Route path="tasks" element={<TaskPage />} />
+            <Route path="roster" element={<RosterManagement />} />
+            <Route path="directory" element={<StaffDirectory />} />
+          </Route>
 
-        {/* Catch-all: redirect any unknown routes to login */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Catch-all: redirect any unknown routes to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </NotificationProvider>
   );
 }
 
