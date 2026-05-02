@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect } from "react";
 import {
   HiOutlinePencilSquare,
@@ -14,25 +15,42 @@ import {
   SelectField,
 } from "../ui";
 import type { Column } from "../ui/DataTable";
+import { apiFetch } from "../../utils/api";
 
 // ── Types ───────────────────────────────────────────────────────────
+type PopulatedRef =
+  | string
+  | { _id: string; name?: string; firstName?: string; lastName?: string }
+  | null
+  | undefined;
+
 interface Patient {
+  [key: string]: unknown;
+  _id?: string;
   mrn: string;
+  firstName: string;
+  lastName: string;
   name: string;
   diagnosis: string;
   dob: string;
-  contact: string;
+  phone: string;
   email: string;
-  location: string;
-  status: string;
-  firstName: string;
-  lastName: string;
   gender: string;
   address: string;
-  ward: string;
-  bedNumber: string;
+  ward?: string;
+  bedNumber?: string;
   patientType: "inpatient" | "outpatient";
-  assignedDoctor: string;
+  status: string;
+  assignedDoctor: PopulatedRef;
+  assignedNurse?: PopulatedRef;
+}
+
+interface Doctor {
+  _id: string;
+  name: string;
+  role?: string;
+  specialty?: string;
+  department?: string;
 }
 
 interface PatientFormState {
@@ -47,7 +65,6 @@ interface PatientFormState {
   email: string;
   diagnosis: string;
   assignedDoctor: string;
-  // Inpatient-only
   ward: string;
   bedNumber: string;
   status: string;
@@ -70,110 +87,24 @@ const emptyForm: PatientFormState = {
   status: "admitted",
 };
 
-// ── Mock data ───────────────────────────────────────────────────────
-const doctors = [
-  {
-    name: "Dr. Sarah Johnson",
-    specialty: "Internal Medicine",
-    department: "General Medicine",
-  },
-  {
-    name: "Dr. Michael John",
-    specialty: "Internal Medicine",
-    department: "General Medicine",
-  },
-  {
-    name: "Dr. Emily Roberts",
-    specialty: "Cardiology",
-    department: "Cardiology",
-  },
-  {
-    name: "Dr. James Lee",
-    specialty: "Orthopedics",
-    department: "Orthopedics",
-  },
-  {
-    name: "Dr. Anna Williams",
-    specialty: "Pediatrics",
-    department: "Pediatrics",
-  },
-];
+// ── Helpers ─────────────────────────────────────────────────────────
 
-const initialPatients: Patient[] = [
-  {
-    mrn: "MRN001234",
-    name: "John Doe",
-    diagnosis: "Pneumonia",
-    dob: "3/15/1985",
-    contact: "555-1001",
-    email: "john.doe@gmail.com",
-    location: "Ward A A-101",
-    status: "admitted",
-    firstName: "John",
-    lastName: "Doe",
-    gender: "male",
-    address: "123 Main St",
-    ward: "Ward A",
-    bedNumber: "A-101",
-    patientType: "inpatient",
-    assignedDoctor: "Dr. Sarah Johnson",
-  },
-  {
-    mrn: "MRN001235",
-    name: "Mary Smith",
-    diagnosis: "Pneumonia",
-    dob: "3/15/1985",
-    contact: "555-1001",
-    email: "mary.smith@gmail.com",
-    location: "Ward A A-102",
-    status: "admitted",
-    firstName: "Mary",
-    lastName: "Smith",
-    gender: "female",
-    address: "456 Oak Ave",
-    ward: "Ward A",
-    bedNumber: "A-102",
-    patientType: "inpatient",
-    assignedDoctor: "Dr. Sarah Johnson",
-  },
-  {
-    mrn: "MRN001236",
-    name: "Robert Brown",
-    diagnosis: "Fracture",
-    dob: "7/22/1990",
-    contact: "555-1002",
-    email: "robert.brown@gmail.com",
-    location: "Outpatient",
-    status: "outpatient",
-    firstName: "Robert",
-    lastName: "Brown",
-    gender: "male",
-    address: "789 Pine Rd",
-    ward: "",
-    bedNumber: "",
-    patientType: "outpatient",
-    assignedDoctor: "Dr. James Lee",
-  },
-  {
-    mrn: "MRN001237",
-    name: "Jane Wilson",
-    diagnosis: "Pneumonia",
-    dob: "1/10/1978",
-    contact: "555-1003",
-    email: "jane.wilson@gmail.com",
-    location: "Ward A A-103",
-    status: "admitted",
-    firstName: "Jane",
-    lastName: "Wilson",
-    gender: "female",
-    address: "321 Elm St",
-    ward: "Ward A",
-    bedNumber: "A-103",
-    patientType: "inpatient",
-    assignedDoctor: "Dr. Michael John",
-  },
-];
+const getRefId = (ref: PopulatedRef): string => {
+  if (!ref) return "";
+  if (typeof ref === "string") return ref;
+  return ref._id;
+};
 
+const getRefName = (ref: PopulatedRef): string => {
+  if (!ref) return "—";
+  if (typeof ref === "string") return ref;
+  if (ref.name) return ref.name;
+  if (ref.firstName || ref.lastName)
+    return `${ref.firstName || ""} ${ref.lastName || ""}`.trim();
+  return "—";
+};
+
+// ── Static Options ──────────────────────────────────────────────────
 const statusVariant: Record<string, "dark" | "outline" | "gray"> = {
   admitted: "dark",
   outpatient: "outline",
@@ -203,10 +134,12 @@ const DoctorSearchSelect = ({
   value,
   onChange,
   required,
+  doctors,
 }: {
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
+  doctors: Doctor[];
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -221,11 +154,16 @@ const DoctorSearchSelect = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const filtered = doctors.filter(
-    (d) =>
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      d.specialty.toLowerCase().includes(search.toLowerCase()) ||
-      d.department.toLowerCase().includes(search.toLowerCase()),
+  const filtered = doctors.filter((d) => {
+    const searchLower = search.toLowerCase();
+    const matchName = d.name?.toLowerCase().includes(searchLower);
+    const matchSpecialty = d.specialty?.toLowerCase().includes(searchLower);
+    const matchDept = d.department?.toLowerCase().includes(searchLower);
+    return matchName || matchSpecialty || matchDept;
+  });
+
+  const selectedDoctor = doctors.find(
+    (d) => d._id === value || d.name === value,
   );
 
   return (
@@ -244,7 +182,13 @@ const DoctorSearchSelect = ({
           borderColor: "#d1d5db",
         }}
       >
-        {value || <span className="text-gray-400">Select a doctor</span>}
+        {selectedDoctor ? (
+          <span className="text-gray-900">{selectedDoctor.name}</span>
+        ) : value ? (
+          <span className="text-gray-900">{value}</span>
+        ) : (
+          <span className="text-gray-400">Select a doctor</span>
+        )}
       </button>
 
       {open && (
@@ -288,28 +232,31 @@ const DoctorSearchSelect = ({
             {filtered.length > 0 ? (
               filtered.map((doc) => (
                 <button
-                  key={doc.name}
+                  key={doc._id}
                   type="button"
-                  onClick={() => {
-                    onChange(doc.name);
+                  onMouseDown={() => {
+                    onChange(doc._id);
                     setOpen(false);
                     setSearch("");
                   }}
                   className={`w-full text-left px-3 py-2.5 hover:bg-[#e8f0f6] transition-colors ${
-                    value === doc.name
+                    value === doc._id
                       ? "bg-[#e8f0f6] text-[#1a5276]"
                       : "text-gray-700"
                   }`}
                 >
                   <p className="text-sm font-medium">{doc.name}</p>
                   <p className="text-xs text-gray-400">
-                    {doc.specialty} • {doc.department}
+                    {doc.specialty || "General"} •{" "}
+                    {doc.department || "Medicine"}
                   </p>
                 </button>
               ))
             ) : (
               <div className="px-3 py-4 text-sm text-gray-400 text-center">
-                No doctors found
+                {doctors.length === 0
+                  ? "No doctors loaded from server"
+                  : "No doctors match search"}
               </div>
             )}
           </div>
@@ -323,15 +270,16 @@ const DoctorSearchSelect = ({
 const AdminPatientForm = ({
   data,
   onChange,
-  isEdit,
+  doctors,
+  isEdit = false,
 }: {
   data: PatientFormState;
   onChange: (d: PatientFormState) => void;
+  doctors: Doctor[];
   isEdit?: boolean;
 }) => {
   const update = (field: keyof PatientFormState, value: string) => {
     const updated = { ...data, [field]: value };
-    // Reset conditional fields when type changes
     if (field === "patientType") {
       if (value === "outpatient") {
         updated.ward = "";
@@ -346,7 +294,6 @@ const AdminPatientForm = ({
 
   return (
     <div className="space-y-4">
-      {/* Patient Type - first choice */}
       <SelectField
         label="Patient Type"
         value={data.patientType}
@@ -358,24 +305,16 @@ const AdminPatientForm = ({
 
       {data.patientType && (
         <>
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <InputField
-              label="Medical Record Number"
-              placeholder="e.g. MRN001234"
-              value={data.mrn}
-              onChange={(v) => update("mrn", v)}
-              disabled={isEdit}
-              required
-            />
-            <InputField
-              label="Diagnosis"
-              placeholder="e.g. Pneumonia"
-              value={data.diagnosis}
-              onChange={(v) => update("diagnosis", v)}
-              required
-            />
-          </div>
+          {isEdit && (
+            <div className="mb-4">
+              <InputField
+                label="Medical Record Number"
+                value={data.mrn}
+                onChange={() => {}}
+                disabled={true}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <InputField
@@ -396,19 +335,37 @@ const AdminPatientForm = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <InputField
+              label="Diagnosis"
+              placeholder="e.g. Pneumonia"
+              value={data.diagnosis}
+              onChange={(v) => update("diagnosis", v)}
+              required
+            />
+            <InputField
               label="Date of Birth"
               placeholder="MM/DD/YYYY"
-              value={data.dob}
+              value={data.dob ? data.dob.split("T")[0] : ""}
               onChange={(v) => update("dob", v)}
               type="date"
               required
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField
               label="Gender"
               value={data.gender}
               onChange={(v) => update("gender", v)}
               options={genderOptions}
               placeholder="Select gender"
+              required
+            />
+            <InputField
+              label="Phone"
+              placeholder="e.g. 555-1001"
+              value={data.phone}
+              onChange={(v) => update("phone", v)}
+              type="tel"
               required
             />
           </div>
@@ -420,32 +377,21 @@ const AdminPatientForm = ({
             onChange={(v) => update("address", v)}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <InputField
-              label="Phone"
-              placeholder="e.g. 555-1001"
-              value={data.phone}
-              onChange={(v) => update("phone", v)}
-              type="tel"
-              required
-            />
-            <InputField
-              label="Email"
-              placeholder="e.g. john@gmail.com"
-              value={data.email}
-              onChange={(v) => update("email", v)}
-              type="email"
-            />
-          </div>
+          <InputField
+            label="Email"
+            placeholder="e.g. john@gmail.com"
+            value={data.email}
+            onChange={(v) => update("email", v)}
+            type="email"
+          />
 
-          {/* Assigned Doctor - searchable dropdown */}
           <DoctorSearchSelect
             value={data.assignedDoctor}
             onChange={(v) => update("assignedDoctor", v)}
+            doctors={doctors}
             required
           />
 
-          {/* Inpatient-only fields */}
           {data.patientType === "inpatient" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <SelectField
@@ -473,7 +419,10 @@ const AdminPatientForm = ({
 
 // ── Main Component ──────────────────────────────────────────────────
 const AdminPatients = () => {
-  const [patients, setPatients] = useState<Patient[]>(initialPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -483,9 +432,53 @@ const AdminPatients = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  const fetchPatients = async () => {
+    try {
+      const res = await apiFetch("/api/patients");
+      const result = await res.json();
+      if (result.success) setPatients(result.data);
+    } catch (err) {
+      console.error("Failed to fetch patients", err);
+    }
+  };
+
+  const fetchDoctors = async () => {
+    try {
+      // Hit the endpoint that triggers the controller function above
+      const res = await apiFetch("/api/staff/doctors");
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        // Map the result.data (which contains Users) to the format the dropdown expects
+        const docs = result.data.map((u: any) => ({
+          _id: u._id,
+          name: u.name || "Unknown Doctor",
+          role: u.role,
+        }));
+
+        setDoctors(docs);
+      } else {
+        console.error("Failed to load doctors:", result.message);
+      }
+    } catch (err) {
+      console.error("Network error fetching doctors", err);
+    }
+  };
+
+  useEffect(() => {
+    const initializeData = async () => {
+      setLoading(true);
+      await Promise.all([fetchPatients(), fetchDoctors()]);
+      setLoading(false);
+    };
+    initializeData();
+  }, []);
+
   const filtered = patients.filter(
     (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      `${p.firstName} ${p.lastName}`
+        .toLowerCase()
+        .includes(search.toLowerCase()) ||
       p.mrn.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -507,40 +500,83 @@ const AdminPatients = () => {
     return true;
   };
 
-  const formToPatient = (
-    data: PatientFormState,
-    existingMrn?: string,
-  ): Patient => ({
-    mrn: existingMrn || data.mrn || `MRN00${1238 + patients.length}`,
-    name: `${data.firstName} ${data.lastName}`,
-    diagnosis: data.diagnosis,
-    dob: data.dob,
-    contact: data.phone,
-    email: data.email,
-    location:
-      data.patientType === "inpatient"
-        ? `${data.ward} ${data.bedNumber}`
-        : "Outpatient",
-    status: data.patientType === "outpatient" ? "outpatient" : "admitted",
-    firstName: data.firstName,
-    lastName: data.lastName,
-    gender: data.gender,
-    address: data.address,
-    ward: data.ward,
-    bedNumber: data.bedNumber,
-    patientType: data.patientType as "inpatient" | "outpatient",
-    assignedDoctor: data.assignedDoctor,
-  });
+  type CreatePatientPayload = {
+    firstName: string;
+    lastName: string;
+    dob: string;
+    phone: string;
+    email: string;
+    gender: string;
+    address: string;
+    diagnosis: string;
+    patientType: "inpatient" | "outpatient" | "";
+    assignedDoctor: string;
+    status: string;
+    ward?: string;
+    bedNumber?: string;
+  };
 
-  const handleAdd = () => {
+  const generatePayload = (data: PatientFormState): CreatePatientPayload => {
+    const payload: CreatePatientPayload = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      dob: data.dob,
+      phone: data.phone,
+      email: data.email,
+      gender: data.gender,
+      address: data.address,
+      diagnosis: data.diagnosis,
+      patientType: data.patientType,
+      assignedDoctor: data.assignedDoctor,
+      status: data.status,
+    };
+
+    if (data.patientType === "inpatient") {
+      payload.ward = data.ward;
+      payload.bedNumber = data.bedNumber;
+    }
+
+    return payload;
+  };
+
+  const handleAdd = async () => {
     if (!validate(addData)) return;
-    setPatients([...patients, formToPatient(addData)]);
-    setAddData(emptyForm);
-    setAddOpen(false);
-    setError("");
+    try {
+      const payload = generatePayload(addData);
+      const res = await apiFetch("/api/patients", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        await fetchPatients();
+        setAddData(emptyForm);
+        setAddOpen(false);
+        setError("");
+      } else {
+        setError(result.message || "Failed to add patient.");
+      }
+    } catch (err) {
+      console.error("Error adding patient:", err);
+      setError("Server error adding patient.");
+    }
   };
 
   const handleEdit = (patient: Patient) => {
+    const refId = getRefId(patient.assignedDoctor);
+    const refName = getRefName(patient.assignedDoctor);
+
+    const matchedDoc = doctors.find(
+      (d) =>
+        d._id === refId ||
+        d._id === refName ||
+        d.name === refName ||
+        d.name === refId,
+    );
+
+    const realDoctorId = matchedDoc ? matchedDoc._id : "";
+
     setEditData({
       mrn: patient.mrn,
       patientType: patient.patientType,
@@ -548,34 +584,58 @@ const AdminPatients = () => {
       lastName: patient.lastName,
       dob: patient.dob,
       gender: patient.gender,
-      address: patient.address,
-      phone: patient.contact,
-      email: patient.email,
+      address: patient.address || "",
+      phone: patient.phone,
+      email: patient.email || "",
       diagnosis: patient.diagnosis,
-      assignedDoctor: patient.assignedDoctor,
-      ward: patient.ward,
-      bedNumber: patient.bedNumber,
+      assignedDoctor: realDoctorId,
+      ward: patient.ward || "",
+      bedNumber: patient.bedNumber || "",
       status: patient.status,
     });
     setEditMrn(patient.mrn);
     setEditOpen(true);
-  };
-
-  const handleUpdate = () => {
-    if (!validate(editData)) return;
-    setPatients(
-      patients.map((p) =>
-        p.mrn === editMrn ? formToPatient(editData, editMrn) : p,
-      ),
-    );
-    setEditOpen(false);
-    setEditData(emptyForm);
     setError("");
   };
 
-  const handleDelete = (mrn: string) => {
-    setPatients(patients.filter((p) => p.mrn !== mrn));
-    setDeleteConfirm(null);
+  const handleUpdate = async () => {
+    if (!validate(editData)) return;
+    try {
+      const payload = generatePayload(editData);
+
+      const res = await apiFetch(`/api/patients/${editMrn}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        await fetchPatients();
+        setEditOpen(false);
+        setEditData(emptyForm);
+        setError("");
+      } else {
+        setError(result.message || "Failed to update patient.");
+        console.error("Backend rejected update:", result);
+      }
+    } catch (err) {
+      console.error("Error updating patient:", err);
+      setError("Server error updating patient.");
+    }
+  };
+
+  const handleDelete = async (mrn: string) => {
+    try {
+      const res = await apiFetch(`/api/patients/${mrn}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        await fetchPatients();
+        setDeleteConfirm(null);
+      }
+    } catch (err) {
+      console.error("Failed to delete patient:", err);
+    }
   };
 
   const columns: Column[] = [
@@ -583,12 +643,15 @@ const AdminPatients = () => {
     {
       key: "name",
       header: "Patient",
-      render: (row: unknown) => (
-        <div>
-          <p className="font-semibold text-gray-900">{(row as Patient).name}</p>
-          <p className="text-xs text-gray-400">{(row as Patient).diagnosis}</p>
-        </div>
-      ),
+      render: (row: unknown) => {
+        const p = row as Patient;
+        return (
+          <div>
+            <p className="font-semibold text-gray-900">{`${p.firstName} ${p.lastName}`}</p>
+            <p className="text-xs text-gray-400">{p.diagnosis}</p>
+          </div>
+        );
+      },
     },
     {
       key: "patientType",
@@ -605,13 +668,51 @@ const AdminPatients = () => {
     {
       key: "assignedDoctor",
       header: "Doctor",
-      render: (row: unknown) => (
-        <span className="text-sm text-gray-700">
-          {(row as Patient).assignedDoctor}
-        </span>
-      ),
+      render: (row: unknown) => {
+        const p = row as Patient;
+
+        if (!p.assignedDoctor) {
+          return (
+            <span className="text-sm text-gray-400 italic">Unassigned</span>
+          );
+        }
+
+        const refId = getRefId(p.assignedDoctor);
+        const refName = getRefName(p.assignedDoctor);
+
+        const matchingDoc = doctors.find(
+          (d) => d._id === refId || d._id === refName || d.name === refName,
+        );
+
+        const displayValue = matchingDoc
+          ? matchingDoc.name
+          : refName !== "—"
+            ? refName
+            : refId;
+
+        return (
+          <span className="text-sm text-gray-700">
+            {displayValue || (
+              <span className="text-gray-400 italic">Unassigned</span>
+            )}
+          </span>
+        );
+      },
     },
-    { key: "location", header: "Location" },
+    {
+      key: "location",
+      header: "Location",
+      render: (row: unknown) => {
+        const p = row as Patient;
+        return (
+          <span className="text-sm text-gray-700">
+            {p.patientType === "inpatient"
+              ? `${p.ward} ${p.bedNumber}`
+              : "Outpatient"}
+          </span>
+        );
+      },
+    },
     {
       key: "status",
       header: "Status",
@@ -644,6 +745,12 @@ const AdminPatients = () => {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-gray-500">Loading patients...</div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -672,7 +779,11 @@ const AdminPatients = () => {
         onChange={setSearch}
         placeholder="Search patients by name or MRN..."
       />
-      <DataTable columns={columns} data={filtered} keyField="mrn" />
+      <DataTable
+        columns={columns}
+        data={filtered as unknown as Record<string, unknown>[]}
+        keyField="mrn"
+      />
 
       {/* Add Modal */}
       <Modal
@@ -705,7 +816,11 @@ const AdminPatients = () => {
               {error}
             </div>
           )}
-          <AdminPatientForm data={addData} onChange={setAddData} />
+          <AdminPatientForm
+            data={addData}
+            onChange={setAddData}
+            doctors={doctors}
+          />
         </div>
       </Modal>
 
@@ -740,7 +855,12 @@ const AdminPatients = () => {
               {error}
             </div>
           )}
-          <AdminPatientForm data={editData} onChange={setEditData} isEdit />
+          <AdminPatientForm
+            data={editData}
+            onChange={setEditData}
+            doctors={doctors}
+            isEdit={true}
+          />
         </div>
       </Modal>
 

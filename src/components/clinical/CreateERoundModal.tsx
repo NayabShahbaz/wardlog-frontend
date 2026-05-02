@@ -6,6 +6,7 @@ import InputField from "../ui/InputField";
 interface CreateERoundModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // Make sure this matches exactly what ClinicalDocumentation expects!
   onSave: (data: {
     patientId: string;
     date: string;
@@ -50,6 +51,9 @@ const CreateERoundModal: React.FC<CreateERoundModalProps> = ({
       setError("Please fill all required fields.");
       return;
     }
+
+    // Pass the raw data up to ClinicalDocumentation.tsx
+    // It will handle stripping out the "(MRN...)" and creating the Title
     onSave({
       patientId,
       date,

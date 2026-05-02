@@ -17,8 +17,9 @@ const LoginPage = () => {
   const [role, setRole] = useState("");
   const [roleOpen, setRoleOpen] = useState(false);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -27,9 +28,37 @@ const LoginPage = () => {
       return;
     }
 
-    const route = roleRoutes[role];
-    if (route) {
-      navigate(route);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password, role }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.message || "Invalid credentials.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Save token and user info so protected routes can use them
+      localStorage.setItem("token", data.data.token);
+      localStorage.setItem("user", JSON.stringify(data.data.user));
+
+      // Navigate to the correct dashboard based on the server-verified role
+      const route = roleRoutes[data.data.user.role];
+      if (route) {
+        navigate(route);
+      }
+    } catch {
+      setError("Server connection failed. Make sure the backend is running.");
+      setIsLoading(false);
     }
   };
 
@@ -139,10 +168,11 @@ const LoginPage = () => {
             {/* Sign In */}
             <button
               type="submit"
-              className="w-full py-2.5 bg-[#1a5276] hover:bg-[#154360] text-white text-sm font-medium
-                         rounded-lg transition-colors"
+              disabled={isLoading}
+              className={`w-full py-2.5 text-white text-sm font-medium rounded-lg transition-colors
+                         ${isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-[#1a5276] hover:bg-[#154360]"}`}
             >
-              Sign In
+              {isLoading ? "Signing in..." : "Sign In"}
             </button>
           </form>
         </div>

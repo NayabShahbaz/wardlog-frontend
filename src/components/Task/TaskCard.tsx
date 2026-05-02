@@ -58,7 +58,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all">
       <div className="flex justify-between items-start gap-4 mb-2">
-        <h3 className="font-bold text-gray-900 leading-tight flex-1">{task.title}</h3>
+        <h3 className="font-bold text-gray-900 leading-tight flex-1">
+          {task.title}
+        </h3>
         <Badge text={task.priority} variant={priorityMap[task.priority]} />
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { useOutletContext } from "react-router-dom";
 import { type UserContextType } from "../layout/DoctorLayout";
 
@@ -6,230 +6,396 @@ import Tabs from "../ui/Tabs";
 import ClinicalNotesSection from "./ClinicalNotesSection";
 import LabOrdersSection, { type LabOrder } from "./LabOrdersSection.tsx";
 import ERoundsSection, { type ERound } from "./ERoundsSection";
-import CreateNoteModal, { templateOptions } from "./CreateNoteModal";
+import CreateNoteModal from "./CreateNoteModal";
 import CreateLabOrderModal from "./CreateLabOrderModal.tsx";
 import CreateERoundModal from "./CreateERoundModal.tsx";
-import { type ClinicalNote, type SOAPNote } from "./ClinicalNoteCard";
-
-type LabOrderFormData = {
-  patientId: string;
-  orderType: string;
-  priority: string;
-  tests: string;
-};
-
-type ERoundFormData = {
-  patientId: string;
-  date: string;
-  vitals: Record<string, string>;
-  assessment: string;
-  plan: string;
-};
-
-// Mock data
-const initialNotes: ClinicalNote[] = [
-  {
-    id: "cn-1",
-    title: "Progress Note",
-    patientName: "John Doe",
-    patientMrn: "MRN001234",
-    doctor: "Dr. Sarah Johnson",
-    date: "3/12/2029, 1:30:00 PM",
-    soap: {
-      subjective: "Patient reports improved breathing, decreased cough",
-      objective: "Temp 98.6°F, BP 120/80, RR 16, O2 sat 96% on room air",
-      assessment: "Pneumonia improving on antibiotics",
-      plan: "Continue current antibiotic regimen, reassess in 24 hours",
-    },
-  },
-];
-
-const initialLabOrders: LabOrder[] = [
-  {
-    id: "lo-1",
-    orderType: "Blood Work",
-    patient: "Mary Smith",
-    patientMrn: "MRN001235",
-    doctor: "Dr. Sarah Johnson",
-    date: "3/12/2026, 11:30:00 AM",
-    priority: "routine",
-    status: "completed",
-    tests: ["HbA1c", "Fasting Glucose"],
-  },
-];
-
-const initialERounds: ERound[] = [
-  {
-    id: "er-1",
-    title: "Daily Progress - 3/12/2026",
-    patient: "John Doe",
-    patientMrn: "MRN001234",
-    doctor: "Dr. Sarah Johnson",
-    date: "3/12/2026",
-    vitals: {
-      temperature: "98.6",
-      bp: "120/80",
-      heartRate: "72",
-      respRate: "16",
-      o2Sat: "96",
-    },
-    assessment: "Patient showing improvement, lungs clearer on auscultation",
-    plan: "Continue current treatment, monitor vitals q4h",
-  },
-];
-
-const patientOptions = [
-  { label: "John Doe (MRN001234)", value: "MRN001234" },
-  { label: "Mary Smith (MRN001235)", value: "MRN001235" },
-  { label: "John Doe (MRN001236)", value: "MRN001236" },
-  { label: "John Doe (MRN001237)", value: "MRN001237" },
-];
-
-const orderTypeLabels: Record<string, string> = {
-  blood_work: "Blood Work",
-  imaging: "Imaging",
-  urinalysis: "Urinalysis",
-  microbiology: "Microbiology",
-};
+import { type ClinicalNote } from "./ClinicalNoteCard";
+import { apiFetch } from "../../utils/api.ts";
 
 const ClinicalDocumentation = () => {
   const { userName, userRole } = useOutletContext<UserContextType>();
   const isNurse = userRole === "Nurse";
 
+  // ── State Management ──────────────────────────────────────────
   const [activeTab, setActiveTab] = useState(0);
-  const [notes, setNotes] = useState<ClinicalNote[]>(initialNotes);
-  const [labOrders, setLabOrders] = useState<LabOrder[]>(initialLabOrders);
-  const [eRounds, setERounds] = useState<ERound[]>(initialERounds);
+  const [notes, setNotes] = useState<ClinicalNote[]>([]);
+  const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
+  const [eRounds, setERounds] = useState<ERound[]>([]);
+  const [patientOptions, setPatientOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
 
   const [createNoteOpen, setCreateNoteOpen] = useState(false);
   const [createLabOpen, setCreateLabOpen] = useState(false);
   const [createERoundOpen, setCreateERoundOpen] = useState(false);
 
+  const token = localStorage.getItem("token");
+
+  // ── Data Fetching ─────────────────────────────────────────────
+  const fetchData = async () => {
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Fetch all clinical data in parallel
+      const [notesRes, labsRes, roundsRes, patientsRes] = await Promise.all([
+        apiFetch("/api/clinical/notes", { headers }),
+        apiFetch("/api/clinical/lab-orders", { headers }),
+        apiFetch("/api/clinical/e-rounds", { headers }),
+        apiFetch("/api/patients", { headers }),
+      ]);
+
+      const [notesData, labsData, roundsData, patientsData] = await Promise.all(
+        [notesRes.json(), labsRes.json(), roundsRes.json(), patientsRes.json()],
+      );
+
+      // Map patients and use them as the master filter list
+      if (patientsData.success) {
+        // 1. Filter the patients so users only see their assigned patients
+        const myPatients = patientsData.data.filter(
+          (p: {
+            assignedNurse?: string | { name?: string };
+            assignedDoctor?: string | { name?: string };
+            mrn: string;
+            firstName: string;
+            lastName: string;
+          }) => {
+            if (userRole === "Admin") return true;
+
+            if (userRole === "Nurse") {
+              // Note: If you bring 'supervisingDoctor' into the UI context later,
+              // you can also check if p.assignedDoctor matches the nurse's supervising doctor here!
+              return (
+                p.assignedNurse === userName ||
+                (typeof p.assignedNurse === "object" &&
+                  p.assignedNurse?.name === userName)
+              );
+            }
+
+            return (
+              p.assignedDoctor === userName ||
+              (typeof p.assignedDoctor === "object" &&
+                p.assignedDoctor?.name === userName)
+            );
+          },
+        );
+
+        // 2. Extract ONLY the allowed MRNs
+        const allowedMrns = myPatients.map((p: { mrn: string }) => p.mrn);
+
+        // 3. STRICTLY filter the clinical documents based on allowed MRNs
+        if (notesData.success) {
+          setNotes(
+            notesData.data.filter((n: { patientMrn: string }) =>
+              allowedMrns.includes(n.patientMrn),
+            ),
+          );
+        }
+        if (labsData.success) {
+          setLabOrders(
+            labsData.data.filter((l: { patientMrn: string }) =>
+              allowedMrns.includes(l.patientMrn),
+            ),
+          );
+        }
+        if (roundsData.success) {
+          setERounds(
+            roundsData.data.filter((r: { patientMrn: string }) =>
+              allowedMrns.includes(r.patientMrn),
+            ),
+          );
+        }
+
+        // 4. Map the filtered list to the dropdown options
+        const options = myPatients.map(
+          (p: { firstName: string; lastName: string; mrn: string }) => ({
+            label: `${p.firstName} ${p.lastName} (${p.mrn})`,
+            value: p.mrn,
+          }),
+        );
+        setPatientOptions(options);
+      }
+    } catch (err) {
+      console.error("Failed to fetch clinical data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // ── Save Handlers (Backend Integration) ───────────────────────
+  const templateLabels: Record<string, string> = {
+    progress: "Progress Note",
+    admission: "Admission Note",
+    discharge: "Discharge Summary",
+    procedure: "Procedure Note",
+  };
+
+  const handleSaveNote = async (data: {
+    patientId: string;
+    template: string;
+    fields: Record<string, string>;
+  }) => {
+    try {
+      const patient = patientOptions.find((p) => p.value === data.patientId);
+      const patientName = patient?.label.split(" (")[0] ?? "";
+
+      const soap =
+        data.template === "progress"
+          ? {
+              subjective: data.fields.subjective || "",
+              objective: data.fields.objective || "",
+              assessment: data.fields.assessment || "",
+              plan: data.fields.plan || "",
+            }
+          : undefined;
+
+      const fields =
+        data.template !== "progress"
+          ? Object.entries(data.fields)
+              .filter(([, value]) => value)
+              .map(([key, value]) => ({
+                label: key
+                  .replace(/([A-Z])/g, " $1")
+                  .replace(/^./, (s) => s.toUpperCase()),
+                value,
+              }))
+          : undefined;
+
+      const payload = {
+        title: templateLabels[data.template] || data.template,
+        patientMrn: data.patientId,
+        patientName,
+        doctor: userName,
+        date: new Date().toLocaleString(),
+        status: "Draft",
+        template: data.template,
+        soap,
+        fields,
+      };
+
+      const res = await apiFetch("/api/clinical/notes", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        console.error("Failed to save note:", result.message);
+        return;
+      }
+
+      await fetchData();
+      setCreateNoteOpen(false);
+    } catch (err) {
+      console.error("Error saving note:", err);
+    }
+  };
+
+  const orderTypeLabels: Record<string, string> = {
+    blood_work: "Blood Work",
+    imaging: "Imaging",
+    urinalysis: "Urinalysis",
+    microbiology: "Microbiology",
+  };
+
+  const handleSaveLabOrder = async (data: {
+    patientId: string;
+    orderType: string;
+    priority: string;
+    tests: string;
+    notes: string;
+  }) => {
+    try {
+      const patient = patientOptions.find((p) => p.value === data.patientId);
+      const patientName = patient?.label.split(" (")[0] ?? "";
+
+      const payload = {
+        patientMrn: data.patientId,
+        patient: patientName,
+        orderType: orderTypeLabels[data.orderType] || data.orderType,
+        doctor: userName,
+        date: new Date().toLocaleString(),
+        priority: data.priority,
+        status: "pending",
+        tests: data.tests
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        notes: data.notes || undefined,
+      };
+
+      const res = await apiFetch("/api/clinical/lab-orders", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        console.error("Failed to save lab order:", result.message);
+        return;
+      }
+
+      await fetchData();
+      setCreateLabOpen(false);
+    } catch (err) {
+      console.error("Error saving lab order:", err);
+    }
+  };
+
+  const handleSaveERound = async (data: {
+    patientId: string;
+    date: string;
+    vitals: {
+      temperature: string;
+      bp: string;
+      heartRate: string;
+      respRate: string;
+      o2Sat: string;
+    };
+    assessment: string;
+    plan: string;
+  }) => {
+    try {
+      const patientObj = patientOptions.find((p) => p.value === data.patientId);
+      const cleanPatientName = patientObj
+        ? patientObj.label.split(" (")[0]
+        : "Unknown";
+
+      const payload = {
+        title: `Daily Progress - ${data.date}`,
+        patient: cleanPatientName,
+        patientMrn: data.patientId,
+        doctor: userName,
+        date: data.date,
+        vitals: data.vitals,
+        assessment: data.assessment,
+        plan: data.plan,
+      };
+
+      const res = await apiFetch("/api/clinical/e-rounds", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        console.error("Failed to save e-round:", result.message);
+        return;
+      }
+
+      await fetchData();
+      setCreateERoundOpen(false);
+    } catch (err) {
+      console.error("Error saving e-round:", err);
+    }
+  };
+
+  // ── UI Logic ──────────────────────────────────────────────────
   const tabs = [
     { label: "Clinical Notes", count: notes.length },
     { label: "Lab Orders", count: labOrders.length },
     { label: "E-Rounds", count: eRounds.length },
   ];
 
-  const generateId = (prefix: string) =>
-    `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const NotesSection = ClinicalNotesSection as ComponentType<{
+    notes: ClinicalNote[];
+    onCreateNote?: () => void;
+  }>;
 
-  // ── Handlers ───────────────────────────────────────────────────
-  const handleSaveNote = (data: {
-    patientId: string;
-    template: string;
-    fields: unknown;
-  }) => {
-    const patient = patientOptions.find((p) => p.value === data.patientId);
-    const newNote: ClinicalNote = {
-      id: generateId("cn"),
-      title:
-        templateOptions
-          .find((t) => t.value === data.template)
-          ?.label.split(" (")[0] || data.template,
-      patientName: patient?.label.split(" (")[0] || "Unknown",
-      patientMrn: data.patientId,
-      doctor: userName,
-      date: new Date().toLocaleString(),
-      soap:
-        data.template === "progress" ? (data.fields as SOAPNote) : undefined,
-    };
-    setNotes([newNote, ...notes]);
-    setCreateNoteOpen(false);
-  };
-
-  const handleSaveLabOrder = (data: LabOrderFormData) => {
-    const patient = patientOptions.find((p) => p.value === data.patientId);
-    const newOrder: LabOrder = {
-      id: generateId("lo"),
-      orderType: orderTypeLabels[data.orderType] || data.orderType,
-      patient: patient?.label.split(" (")[0] || "Unknown",
-      patientMrn: data.patientId,
-      doctor: userName,
-      date: new Date().toLocaleString(),
-      priority: data.priority,
-      status: "in-progress",
-      tests: data.tests.split(",").map((t: string) => t.trim()),
-    };
-    setLabOrders([newOrder, ...labOrders]);
-    setCreateLabOpen(false);
-  };
-
-  const handleSaveERound = (data: ERoundFormData) => {
-    const patient = patientOptions.find((p) => p.value === data.patientId);
-    const newRound: ERound = {
-      id: generateId("er"),
-      title: `Daily Progress - ${data.date}`,
-      patient: patient?.label.split(" (")[0] || "Unknown",
-      patientMrn: data.patientId,
-      doctor: userName,
-      date: data.date,
-      vitals: data.vitals,
-      assessment: data.assessment,
-      plan: data.plan,
-    };
-    setERounds([newRound, ...eRounds]);
-    setCreateERoundOpen(false);
-  };
-
-  useEffect(() => {
-    const handleDischarge = (event: unknown) => {
-      const mrn = (event as CustomEvent).detail.mrn;
-      setNotes((prev) => prev.filter((n) => n.patientMrn !== mrn));
-      setLabOrders((prev) => prev.filter((o) => o.patientMrn !== mrn));
-      setERounds((prev) => prev.filter((r) => r.patientMrn !== mrn));
-    };
-    window.addEventListener("patientDischarged", handleDischarge);
-    return () =>
-      window.removeEventListener("patientDischarged", handleDischarge);
-  }, []);
+  if (loading)
+    return <div className="p-8 text-center">Loading documentation...</div>;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-0">
-      {/* Header - No Button Here */}
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900">
             Clinical Documentation
           </h1>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
-            <span>Manage notes, orders, and rounds</span>
-            
-          </div>
+          <p className="text-sm text-gray-500">
+            Manage notes, orders, and rounds
+          </p>
         </div>
       </div>
 
-      <div className="px-0 sm:px-0">
-        <Tabs tabs={tabs} activeIndex={activeTab} onChange={setActiveTab} />
-      </div>
+      <Tabs tabs={tabs} activeIndex={activeTab} onChange={setActiveTab} />
 
-      {/* Tab Content - Passing the functions back down */}
       <div className="mt-2">
-        {activeTab === 0 && (
-          <ClinicalNotesSection
-            notes={notes}
-            onCreateNote={isNurse ? undefined : () => setCreateNoteOpen(true)}
-          />
-        )}
+        {activeTab === 0 &&
+          (notes.length > 0 ? (
+            <NotesSection
+              notes={notes}
+              onCreateNote={isNurse ? undefined : () => setCreateNoteOpen(true)}
+            />
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-10 text-center mt-6">
+              <p className="text-gray-500 mb-4 font-medium">
+                No clinical notes found for your assigned patients.
+              </p>
+              {!isNurse && (
+                <button
+                  onClick={() => setCreateNoteOpen(true)}
+                  className="px-5 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  Create Clinical Note
+                </button>
+              )}
+            </div>
+          ))}
 
-        {activeTab === 1 && (
-          <LabOrdersSection
-            orders={labOrders}
-            onCreateOrder={() => setCreateLabOpen(true)}
-          />
-        )}
+        {activeTab === 1 &&
+          (labOrders.length > 0 ? (
+            <LabOrdersSection
+              orders={labOrders}
+              onCreateOrder={() => setCreateLabOpen(true)}
+            />
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-10 text-center mt-6">
+              <p className="text-gray-500 mb-4 font-medium">
+                No lab orders found for your assigned patients.
+              </p>
+              <button
+                onClick={() => setCreateLabOpen(true)}
+                className="px-5 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                Create Lab Order
+              </button>
+            </div>
+          ))}
 
-        {activeTab === 2 && (
-          <ERoundsSection
-            rounds={eRounds}
-            onRecordRound={
-              isNurse ? undefined : () => setCreateERoundOpen(true)
-            }
-          />
-        )}
+        {activeTab === 2 &&
+          (eRounds.length > 0 ? (
+            <ERoundsSection
+              rounds={eRounds}
+              onRecordRound={
+                isNurse ? undefined : () => setCreateERoundOpen(true)
+              }
+            />
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-10 text-center mt-6">
+              <p className="text-gray-500 mb-4 font-medium">
+                No E-Rounds found for your assigned patients.
+              </p>
+              {!isNurse && (
+                <button
+                  onClick={() => setCreateERoundOpen(true)}
+                  className="px-5 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  Record E-Round
+                </button>
+              )}
+            </div>
+          ))}
       </div>
 
-      {/* Modals */}
       <CreateNoteModal
         isOpen={createNoteOpen}
         onClose={() => setCreateNoteOpen(false)}

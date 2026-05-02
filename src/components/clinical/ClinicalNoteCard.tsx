@@ -1,5 +1,4 @@
 import React from "react";
-import Badge from "../ui/Badge";
 
 export interface SOAPNote {
   subjective: string;
@@ -14,7 +13,7 @@ export interface NoteField {
 }
 
 export interface ClinicalNote {
-  id: string;
+  _id?: string;
   title: string;
   patientName: string;
   patientMrn: string;

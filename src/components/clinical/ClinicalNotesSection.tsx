@@ -30,7 +30,9 @@ const ClinicalNotesSection: React.FC<ClinicalNotesSectionProps> = ({
       {/* Notes List */}
       <div className="space-y-4">
         {notes.length > 0 ? (
-          notes.map((note) => <ClinicalNoteCard key={note.id} note={note} />)
+          notes.map((note, index) => (
+            <ClinicalNoteCard key={note._id ?? index} note={note} />
+          ))
         ) : (
           <div className="text-center py-8 text-sm text-gray-400">
             No clinical notes found

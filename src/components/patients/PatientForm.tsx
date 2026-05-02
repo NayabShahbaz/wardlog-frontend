@@ -67,9 +67,6 @@ const PatientForm: React.FC<PatientFormProps> = ({
   };
 
   return (
-    /* Added 'max-w-full' and 'px-2' to ensure it doesn't bleed off screen.
-       Increased 'space-y-6' for better touch targets on mobile.
-    */
     <div className="w-full max-w-4xl mx-auto space-y-6 px-1 sm:px-0">
       {/* Row 1: MRN & Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

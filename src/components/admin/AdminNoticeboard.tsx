@@ -1,51 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useOutletContext } from "react-router-dom";
+import { type UserContextType } from "../layout/DoctorLayout";
+import { apiFetch } from "../../utils/api";
 import { HiOutlinePlus, HiOutlineMegaphone } from "react-icons/hi2";
 import { Modal, InputField, SelectField } from "../ui";
 import NoticeCard from "../ui/NoticeCard";
 import type { Notice } from "../ui/NoticeCard";
-
-const initialNotices: Notice[] = [
-  {
-    id: "n1",
-    title: "System Maintenance Scheduled",
-    content:
-      "The hospital management system will undergo scheduled maintenance on March 15, 2026 from 2:00 AM to 4:00 AM. Please save all work before this time.",
-    category: "System",
-    author: "Admin",
-    date: "3/10/2026",
-    priority: "high",
-  },
-  {
-    id: "n2",
-    title: "New COVID-19 Protocol Update",
-    content:
-      "Updated COVID-19 screening protocols are now in effect. All staff must review the new guidelines available in the shared drive. Masks are mandatory in all patient areas.",
-    category: "Policy",
-    author: "Admin",
-    date: "3/09/2026",
-    priority: "high",
-  },
-  {
-    id: "n3",
-    title: "Staff Meeting - March 12",
-    content:
-      "Monthly all-hands staff meeting has been moved to 3:00 PM in the main auditorium. Attendance is mandatory for all department heads.",
-    category: "General",
-    author: "Admin",
-    date: "3/08/2026",
-    priority: "medium",
-  },
-  {
-    id: "n4",
-    title: "New Staff Onboarding",
-    content:
-      "Please welcome Dr. Michael John who has joined the General Medicine department. He will be available for consultations starting next week.",
-    category: "HR",
-    author: "Admin",
-    date: "3/07/2026",
-    priority: "low",
-  },
-];
 
 const categoryOptions = [
   { label: "System", value: "System" },
@@ -56,13 +16,42 @@ const categoryOptions = [
 ];
 
 const priorityOptions = [
-  { label: "High", value: "high" },
-  { label: "Medium", value: "medium" },
-  { label: "Low", value: "low" },
+  { label: "High", value: "High" },
+  { label: "Medium", value: "Medium" },
+  { label: "Low", value: "Low" },
 ];
 
+interface BackendNotice {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  priority: string;
+  author?: { _id: string; name: string } | string;
+  createdAt?: string;
+}
+
+const toNotice = (n: BackendNotice): Notice => ({
+  id: n._id,
+  title: n.title,
+  content: n.content,
+  category: n.category,
+  priority: n.priority.toLowerCase(),
+  author:
+    typeof n.author === "object" && n.author?.name
+      ? n.author.name
+      : typeof n.author === "string"
+        ? n.author
+        : "Admin",
+  date: n.createdAt
+    ? new Date(n.createdAt).toLocaleDateString()
+    : new Date().toLocaleDateString(),
+});
+
 const AdminNoticeboard = () => {
-  const [notices, setNotices] = useState<Notice[]>(initialNotices);
+  const { userName } = useOutletContext<UserContextType>();
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState("");
 
@@ -70,10 +59,28 @@ const AdminNoticeboard = () => {
     title: "",
     content: "",
     category: "",
-    priority: "medium",
+    priority: "Medium",
   });
 
-  const handleCreate = () => {
+  // ── Fetch ─────────────────────────────────────────────────────
+  const fetchNotices = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/notices");
+      const data = await res.json();
+      if (data.success) setNotices(data.data.map(toNotice));
+    } catch (err) {
+      console.error("Failed to fetch notices:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotices();
+  }, [fetchNotices]);
+
+  // ── Create ────────────────────────────────────────────────────
+  const handleCreate = async () => {
     if (
       !formData.title.trim() ||
       !formData.content.trim() ||
@@ -82,24 +89,63 @@ const AdminNoticeboard = () => {
       setError("Please fill all required fields.");
       return;
     }
-    const newNotice: Notice = {
-      id: `n${Date.now()}`,
-      title: formData.title,
-      content: formData.content,
-      category: formData.category,
-      author: "Admin",
-      date: new Date().toLocaleDateString(),
-      priority: formData.priority,
-    };
-    setNotices([newNotice, ...notices]);
-    setFormData({ title: "", content: "", category: "", priority: "medium" });
-    setCreateOpen(false);
-    setError("");
+
+    try {
+      const res = await apiFetch("/api/notices", {
+        method: "POST",
+        body: JSON.stringify({
+          title: formData.title,
+          content: formData.content,
+          category: formData.category,
+          priority: formData.priority,
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        setError(result.message || "Failed to post notice.");
+        return;
+      }
+
+      await fetchNotices();
+      closeModal();
+    } catch (err) {
+      console.error("Error posting notice:", err);
+      setError("Server error. Please try again.");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setNotices(notices.filter((n) => n.id !== id));
+  // ── Delete ────────────────────────────────────────────────────
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await apiFetch(`/api/notices/${id}`, {
+        method: "DELETE",
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        await fetchNotices();
+      } else {
+        console.error("Delete failed:", result.message);
+      }
+    } catch (err) {
+      console.error("Error deleting notice:", err);
+    }
   };
+
+  const closeModal = () => {
+    setCreateOpen(false);
+    setError("");
+    setFormData({
+      title: "",
+      content: "",
+      category: "",
+      priority: "Medium",
+    });
+  };
+
+  void userName;
+
+  if (loading) return <div className="p-8 text-center">Loading notices...</div>;
 
   return (
     <div className="space-y-6">
@@ -123,16 +169,16 @@ const AdminNoticeboard = () => {
 
       {/* Notices List */}
       <div className="space-y-4">
-        {notices.map((notice) => (
-          <NoticeCard
-            key={notice.id}
-            notice={notice}
-            showDelete
-            onDelete={handleDelete}
-          />
-        ))}
-
-        {notices.length === 0 && (
+        {notices.length > 0 ? (
+          notices.map((notice) => (
+            <NoticeCard
+              key={notice.id}
+              notice={notice}
+              showDelete
+              onDelete={handleDelete}
+            />
+          ))
+        ) : (
           <div className="text-center py-12 text-sm text-gray-400">
             No notices posted
           </div>
@@ -143,14 +189,11 @@ const AdminNoticeboard = () => {
       <Modal
         title="Create Notice"
         isOpen={createOpen}
-        onClose={() => {
-          setCreateOpen(false);
-          setError("");
-        }}
+        onClose={closeModal}
         footer={
           <>
             <button
-              onClick={() => setCreateOpen(false)}
+              onClick={closeModal}
               className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               Cancel

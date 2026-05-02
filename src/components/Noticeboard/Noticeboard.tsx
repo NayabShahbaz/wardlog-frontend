@@ -1,35 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
 import { type UserContextType } from "../layout/DoctorLayout";
+import { apiFetch } from "../../utils/api";
 
 import { Modal, InputField, SelectField } from "../ui";
 import NoticeCard from "../ui/NoticeCard";
 import type { Notice } from "../ui/NoticeCard";
 import { HiOutlinePlus, HiOutlineMegaphone } from "react-icons/hi2";
-
-const initialNotices: Notice[] = [
-  {
-    id: "1",
-    title: "New COVID-19 Protocol Update",
-    category: "Policy",
-    author: "Admin",
-    date: "3/11/2026",
-    priority: "high",
-    expiresAt: "3/26/2026",
-    content:
-      "Updated PPE requirements effective immediately. Please review the new guidelines in the staff protocol manual.",
-  },
-  {
-    id: "2",
-    title: "Staff Meeting - March 15",
-    category: "General",
-    author: "Admin",
-    date: "3/11/2026",
-    priority: "medium",
-    content:
-      "Monthly staff meeting scheduled for March 15 at 2 PM in Conference Room A. Attendance is mandatory.",
-  },
-];
 
 const categoryOptions = [
   { label: "System", value: "System" },
@@ -40,65 +17,152 @@ const categoryOptions = [
 ];
 
 const priorityOptions = [
-  { label: "High", value: "high" },
-  { label: "Medium", value: "medium" },
-  { label: "Low", value: "low" },
+  { label: "High", value: "High" },
+  { label: "Medium", value: "Medium" },
+  { label: "Low", value: "Low" },
 ];
 
+// Backend notice shape
+interface BackendNotice {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  priority: string;
+  author?: { _id: string; name: string } | string;
+  createdAt?: string;
+  expiresAt?: string;
+}
+
+// Transform backend notice to the shape NoticeCard expects
+const toNotice = (n: BackendNotice): Notice => ({
+  id: n._id,
+  title: n.title,
+  content: n.content,
+  category: n.category,
+  priority: n.priority.toLowerCase(),
+  author:
+    typeof n.author === "object" && n.author?.name
+      ? n.author.name
+      : typeof n.author === "string"
+        ? n.author
+        : "Unknown",
+  date: n.createdAt
+    ? new Date(n.createdAt).toLocaleDateString()
+    : new Date().toLocaleDateString(),
+  expiresAt: n.expiresAt
+    ? new Date(n.expiresAt).toLocaleDateString()
+    : undefined,
+});
+
 export default function NoticeboardPage() {
-  const { userName, userRole } = useOutletContext<UserContextType>();
-  const [notices, setNotices] = useState<Notice[]>(initialNotices);
+  const { userId, userName, userRole } = useOutletContext<UserContextType>();
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentUser = { name: userName, role: userRole.toLowerCase() };
+  const isAdmin = userRole === "Admin";
 
   const [formData, setFormData] = useState({
     title: "",
     content: "",
     category: "General",
-    priority: "medium",
+    priority: "Medium",
     expiresAt: "",
   });
 
-  const handlePost = () => {
+  // ── Fetch Notices ─────────────────────────────────────────────
+  const fetchNotices = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/notices");
+      const data = await res.json();
+      if (data.success) {
+        setNotices(data.data.map(toNotice));
+      }
+    } catch (err) {
+      console.error("Failed to fetch notices:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotices();
+  }, [fetchNotices]);
+
+  // ── Create Notice ─────────────────────────────────────────────
+  const handlePost = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
       setError("Please provide both a title and content for the notice.");
       return;
     }
 
-    const id = crypto.randomUUID();
-    const today = new Date().toLocaleDateString();
-    const newNotice: Notice = {
-      id,
-      title: formData.title,
-      content: formData.content,
-      category: formData.category,
-      author: currentUser.name,
-      date: today,
-      priority: formData.priority,
-      expiresAt: formData.expiresAt || undefined,
-    };
+    try {
+      const payload: Record<string, unknown> = {
+        title: formData.title,
+        content: formData.content,
+        category: formData.category,
+        priority: formData.priority,
+      };
 
-    setNotices([newNotice, ...notices]);
-    closeModal();
-    setFormData({
-      title: "",
-      content: "",
-      category: "General",
-      priority: "medium",
-      expiresAt: "",
-    });
+      if (formData.expiresAt) {
+        payload.expiresAt = formData.expiresAt;
+      }
+
+      const res = await apiFetch("/api/notices", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        setError(result.message || "Failed to post notice.");
+        return;
+      }
+
+      await fetchNotices();
+      closeModal();
+    } catch (err) {
+      console.error("Error posting notice:", err);
+      setError("Server error. Please try again.");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setNotices(notices.filter((n) => n.id !== id));
+  // ── Delete Notice ─────────────────────────────────────────────
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await apiFetch(`/api/notices/${id}`, {
+        method: "DELETE",
+      });
+
+      const result = await res.json();
+      if (res.ok && result.success) {
+        await fetchNotices();
+      } else {
+        console.error("Delete failed:", result.message);
+      }
+    } catch (err) {
+      console.error("Error deleting notice:", err);
+    }
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setError(null);
+    setFormData({
+      title: "",
+      content: "",
+      category: "General",
+      priority: "Medium",
+      expiresAt: "",
+    });
   };
+
+  // Keep userId reference alive for future use
+  void userId;
+
+  if (loading) return <div className="p-8 text-center">Loading notices...</div>;
 
   return (
     <div className="space-y-6">
@@ -114,12 +178,14 @@ export default function NoticeboardPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-[#1a5276] hover:bg-[#154360] text-white text-sm font-medium rounded-lg transition-colors shrink-0"
-        >
-          <HiOutlinePlus className="w-4 h-4" /> Post Notice
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#1a5276] hover:bg-[#154360] text-white text-sm font-medium rounded-lg transition-colors shrink-0"
+          >
+            <HiOutlinePlus className="w-4 h-4" /> Post Notice
+          </button>
+        )}
       </div>
 
       {/* Notice List */}
@@ -129,10 +195,7 @@ export default function NoticeboardPage() {
             <NoticeCard
               key={notice.id}
               notice={notice}
-              showDelete={
-                currentUser.role === "admin" ||
-                notice.author === currentUser.name
-              }
+              showDelete={isAdmin || notice.author === userName}
               onDelete={handleDelete}
             />
           ))

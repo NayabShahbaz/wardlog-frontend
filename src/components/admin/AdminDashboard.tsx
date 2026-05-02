@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import {
   HiOutlineUsers,
   HiOutlineBuildingOffice2,
@@ -10,113 +11,169 @@ import {
   HiOutlineBell,
   HiOutlineCalendarDays,
 } from "react-icons/hi2";
-import { StatCard, SectionCard, Badge, ListRow, WelcomeHeader } from "../ui";
+import {
+  StatCard,
+  SectionCard,
+  Badge,
+  ListRow,
+  EmptyState,
+  WelcomeHeader,
+} from "../ui";
+import { apiFetch } from "../../utils/api";
+import { type UserContextType } from "../layout/DoctorLayout";
 
-const recentActivity = [
-  {
-    id: "a1",
-    action: "New user registered",
-    user: "Emily Chen",
-    time: "2 hours ago",
-    type: "user",
-  },
-  {
-    id: "a2",
-    action: "Ward B updated",
-    user: "Admin",
-    time: "4 hours ago",
-    type: "ward",
-  },
-  {
-    id: "a3",
-    action: "System backup completed",
-    user: "System",
-    time: "6 hours ago",
-    type: "system",
-  },
-  {
-    id: "a4",
-    action: "New doctor onboarded",
-    user: "Dr. Michael John",
-    time: "1 day ago",
-    type: "user",
-  },
-];
+// ── Types ───────────────────────────────────────────────────────
+interface StaffMember {
+  _id: string;
+  name: string;
+  role: string;
+  department?: string;
+}
 
-const pendingApprovals = [
-  {
-    id: "p1",
-    name: "James Wilson",
-    role: "Nurse",
-    department: "Ward B",
-    status: "pending",
-  },
-  {
-    id: "p2",
-    name: "Linda Martinez",
-    role: "Admin",
-    department: "Administration",
-    status: "pending",
-  },
-];
+interface SwapRequest {
+  _id: string;
+  requester: { _id: string; name: string } | string;
+  requesterRole: string;
+  status: string;
+  reason?: string;
+  requestedDate?: string;
+}
 
-const systemAlerts = [
-  "Database backup scheduled for tonight at 2 AM",
-  "3 user accounts require password reset",
-  "Ward C capacity at 90%",
-];
+interface Notice {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  priority: string;
+}
 
-const activityTypeVariant = (type: string) => {
-  if (type === "user") return "dark" as const;
-  if (type === "ward") return "outline" as const;
+interface Patient {
+  mrn: string;
+  firstName: string;
+  lastName: string;
+  status: string;
+}
+
+const priorityVariant = (p: string) => {
+  const lower = p.toLowerCase();
+  if (lower === "high") return "red" as const;
+  if (lower === "medium") return "orange" as const;
   return "gray" as const;
 };
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const { userName } = useOutletContext<UserContextType>();
+
+  // ── State ─────────────────────────────────────────────────────
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ── Fetching ──────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [staffRes, swapRes, noticeRes, patientRes] = await Promise.all([
+          apiFetch("/api/staff"),
+          apiFetch("/api/roster/swap-requests"),
+          apiFetch("/api/notices"),
+          apiFetch("/api/patients"),
+        ]);
+
+        const [staffData, swapData, noticeData, patientData] =
+          await Promise.all([
+            staffRes.json(),
+            swapRes.json(),
+            noticeRes.json(),
+            patientRes.json(),
+          ]);
+
+        if (staffData.success) setStaff(staffData.data);
+        if (swapData.success) setSwapRequests(swapData.data);
+        if (noticeData.success) setNotices(noticeData.data);
+        if (patientData.success) setPatients(patientData.data);
+      } catch (err) {
+        console.error("Admin dashboard fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // ── Derived stats ─────────────────────────────────────────────
+  const doctors = staff.filter((s) => s.role === "Doctor");
+  const nurses = staff.filter((s) => s.role === "Nurse");
+  const admins = staff.filter((s) => s.role === "Admin");
+  const pendingSwaps = swapRequests.filter((r) => r.status === "pending");
+  const activePatients = patients.filter(
+    (p) => p.status !== "discharged" && p.status !== "completed",
+  );
+
+  const getRequesterName = (req: SwapRequest): string => {
+    if (typeof req.requester === "string") return req.requester;
+    return req.requester?.name ?? "Unknown";
+  };
 
   const statCards = [
     {
       label: "Total Staff",
-      value: "8",
-      sub: "2 doctors, 4 nurses, 2 admin",
+      value: String(staff.length),
+      sub: `${doctors.length} doctors, ${nurses.length} nurses, ${admins.length} admin`,
       color: "bg-blue-100",
       iconColor: "text-blue-600",
       icon: HiOutlineUsers,
     },
     {
-      label: "Active Wards",
-      value: "4",
-      sub: "Ward A, B, C, ICU",
+      label: "Active Patients",
+      value: String(activePatients.length),
+      sub: `${patients.filter((p) => p.status === "admitted").length} admitted`,
       color: "bg-green-100",
       iconColor: "text-green-600",
       icon: HiOutlineBuildingOffice2,
     },
     {
       label: "Pending Approvals",
-      value: String(pendingApprovals.length),
-      sub: "Requires action",
+      value: String(pendingSwaps.length),
+      sub: pendingSwaps.length > 0 ? "Requires action" : "All clear",
       color: "bg-orange-100",
       iconColor: "text-orange-600",
       icon: HiOutlineShieldCheck,
     },
     {
-      label: "System Alerts",
-      value: String(systemAlerts.length),
-      sub: "Active alerts",
+      label: "Active Notices",
+      value: String(notices.length),
+      sub: "Hospital-wide",
       color: "bg-red-100",
       iconColor: "text-red-600",
       icon: HiOutlineBell,
     },
   ];
 
+  if (loading)
+    return (
+      <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>
+    );
+
   return (
     <>
       <WelcomeHeader
-        name="Admin"
+        name={userName}
         department="System Administration"
-        date="Apr 1, 2025"
-        time="9:41 AM"
+        date={new Date().toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })}
+        time={new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -126,103 +183,150 @@ const AdminDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Pending Swap Requests */}
         <div
           className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
-          onClick={() => navigate("/admin/staff")}
+          onClick={() => navigate("/admin/roster")}
         >
           <SectionCard title="Pending Approvals" icon={HiOutlineUserPlus}>
-            {pendingApprovals.length > 0 ? (
-              <div className="space-y-3">
-                {pendingApprovals.map((item) => (
-                  <ListRow key={item.id}>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {item.name}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {item.role} • {item.department}
-                      </p>
-                    </div>
-                    <Badge text={item.status} variant="outline" />
-                  </ListRow>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-sm text-gray-400">
-                No pending approvals
-              </div>
-            )}
+            <div className="min-h-[210px]">
+              {pendingSwaps.length > 0 ? (
+                <div className="space-y-3">
+                  {pendingSwaps.slice(0, 3).map((req) => (
+                    <ListRow key={req._id}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {getRequesterName(req)}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {req.requesterRole}
+                          {req.reason && ` · ${req.reason}`}
+                        </p>
+                      </div>
+                      <Badge text={req.status} variant="outline" />
+                    </ListRow>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState message="No pending approvals" />
+                </div>
+              )}
+            </div>
           </SectionCard>
         </div>
 
-        <SectionCard title="System Alerts" icon={HiOutlineBell}>
-          <div className="space-y-3">
-            {systemAlerts.map((alert, i) => (
-              <div
-                key={i}
-                className="px-4 py-2.5 bg-gray-50 rounded-lg text-sm text-gray-600"
-              >
-                {alert}
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        {/* Notices */}
+        <div
+          className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
+          onClick={() => navigate("/admin/noticeboard")}
+        >
+          <SectionCard title="Recent Notices" icon={HiOutlineBell}>
+            <div className="min-h-[210px]">
+              {notices.length > 0 ? (
+                <div className="space-y-3">
+                  {notices.slice(0, 3).map((notice) => (
+                    <ListRow key={notice._id}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {notice.title}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {notice.category}
+                        </p>
+                      </div>
+                      <Badge
+                        text={notice.priority}
+                        variant={priorityVariant(notice.priority)}
+                      />
+                    </ListRow>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState message="No notices" />
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <SectionCard
-          title="Recent Activity"
-          icon={HiOutlineClipboardDocumentList}
+        {/* Staff Overview */}
+        <div
+          className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
+          onClick={() => navigate("/admin/directory")}
         >
-          <div className="space-y-3">
-            {recentActivity.map((item) => (
-              <ListRow key={item.id}>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {item.action}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {item.user} • {item.time}
-                  </p>
+          <SectionCard
+            title="Staff Directory"
+            icon={HiOutlineClipboardDocumentList}
+          >
+            <div className="min-h-[280px]">
+              {staff.length > 0 ? (
+                <div className="space-y-3">
+                  {staff.slice(0, 4).map((member) => (
+                    <ListRow key={member._id}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {member.name}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {member.department ?? "—"}
+                        </p>
+                      </div>
+                      <Badge
+                        text={member.role}
+                        variant={
+                          member.role === "Doctor"
+                            ? "dark"
+                            : member.role === "Nurse"
+                              ? "outline"
+                              : "gray"
+                        }
+                      />
+                    </ListRow>
+                  ))}
                 </div>
-                <Badge
-                  text={item.type}
-                  variant={activityTypeVariant(item.type)}
-                />
-              </ListRow>
-            ))}
-          </div>
-        </SectionCard>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState message="No staff found" />
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        </div>
 
+        {/* Quick Actions */}
         <SectionCard title="Quick Actions" icon={HiOutlineCog6Tooth}>
-          <div className="space-y-3">
+          <div className="min-h-[210px] space-y-3">
             <button
               onClick={() => navigate("/admin/patients")}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg text-sm text-gray-700 font-medium hover:bg-[#e8f0f6] hover:text-[#1a5276] transition-colors text-left"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineUsers className="w-5 h-5" /> Manage Patients
             </button>
             <button
-              onClick={() => navigate("/admin/staff")}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg text-sm text-gray-700 font-medium hover:bg-[#e8f0f6] hover:text-[#1a5276] transition-colors text-left"
+              onClick={() => navigate("/admin/staff-directory")}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#22c55e] text-white rounded-xl text-sm font-bold hover:bg-[#16a34a] shadow-md active:scale-[0.98] transition-all"
             >
-              <HiOutlineUserGroup className="w-5 h-5" /> Manage Staff
+              <HiOutlineUserGroup className="w-5 h-5" /> Staff Directory
             </button>
             <button
               onClick={() => navigate("/admin/roster")}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg text-sm text-gray-700 font-medium hover:bg-[#e8f0f6] hover:text-[#1a5276] transition-colors text-left"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#a855f7] text-white rounded-xl text-sm font-bold hover:bg-[#9333ea] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineCalendarDays className="w-5 h-5" /> Manage Roster
             </button>
             <button
               onClick={() => navigate("/admin/noticeboard")}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg text-sm text-gray-700 font-medium hover:bg-[#e8f0f6] hover:text-[#1a5276] transition-colors text-left"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#f59e0b] text-white rounded-xl text-sm font-bold hover:bg-[#d97706] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineBell className="w-5 h-5" /> Manage Noticeboard
             </button>
             <button
               onClick={() => navigate("/admin/settings")}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg text-sm text-gray-700 font-medium hover:bg-[#e8f0f6] hover:text-[#1a5276] transition-colors text-left"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#ef4444] text-white rounded-xl text-sm font-bold hover:bg-[#dc2626] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineCog6Tooth className="w-5 h-5" /> System Settings
             </button>
