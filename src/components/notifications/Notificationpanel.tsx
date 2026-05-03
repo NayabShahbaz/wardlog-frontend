@@ -9,20 +9,29 @@ import {
   HiOutlineArrowsRightLeft,
   HiOutlineUserPlus,
   HiOutlineTrash,
+  HiOutlineArrowRightOnRectangle,
 } from "react-icons/hi2";
 import {
   useNotifications,
   type NotificationType,
 } from "./NotificationsContext";
 
+import type { IconType } from "react-icons";
+
+// Use IconType instead of React.ElementType
 const typeConfig: Record<
   NotificationType,
-  { icon: React.ElementType; color: string; bg: string }
+  { icon: IconType; color: string; bg: string }
 > = {
   task_completed: {
     icon: HiOutlineCheckCircle,
     color: "text-green-600",
     bg: "bg-green-50",
+  },
+  task_assigned: {
+    icon: HiOutlineCheckCircle,
+    color: "text-blue-600",
+    bg: "bg-blue-50",
   },
   lab_order: {
     icon: HiOutlineBeaker,
@@ -33,6 +42,11 @@ const typeConfig: Record<
     icon: HiOutlineUser,
     color: "text-blue-600",
     bg: "bg-blue-50",
+  },
+  patient_discharged: {
+    icon: HiOutlineArrowRightOnRectangle,
+    color: "text-orange-600",
+    bg: "bg-orange-50",
   },
   document_update: {
     icon: HiOutlineDocumentText,
@@ -77,7 +91,14 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         ignoreNextClose.current = false;
         return;
       }
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+
+      const target = e.target as HTMLElement;
+
+      if (target.closest("[data-notification-bell]")) {
+        return;
+      }
+
+      if (panelRef.current && !panelRef.current.contains(target)) {
         onClose();
       }
     },
@@ -86,13 +107,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    // Use a small delay so the click that opened the panel doesn't immediately close it
     const id = requestAnimationFrame(() => {
-      document.addEventListener("click", handleOutsideClick, true);
+      document.addEventListener("mousedown", handleOutsideClick);
     });
     return () => {
       cancelAnimationFrame(id);
-      document.removeEventListener("click", handleOutsideClick, true);
+      document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, [isOpen, handleOutsideClick]);
 
@@ -165,7 +185,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         {notifications.length > 0 ? (
           notifications.map((notif) => {
             const config = typeConfig[notif.type];
-            const Icon = config.icon;
+            const Icon = config?.icon ?? HiOutlineBell;
+            const bg = config?.bg ?? "bg-gray-50";
+            const color = config?.color ?? "text-gray-600";
             return (
               <div
                 key={notif.id}
@@ -183,8 +205,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                   borderBottomColor: "#f3f4f6",
                 }}
               >
-                <div className={`${config.bg} p-2 rounded-lg shrink-0 mt-0.5`}>
-                  <Icon className={`w-4 h-4 ${config.color}`} />
+                <div className={`${bg} p-2 rounded-lg shrink-0 mt-0.5`}>
+                  <Icon className={`w-4 h-4 ${color}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

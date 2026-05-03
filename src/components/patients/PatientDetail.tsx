@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ComponentType } from "react";
 import {
   useLocation,
   useNavigate,
@@ -68,7 +68,7 @@ const formatDate = (d?: string) => {
 };
 
 const PatientDetail = () => {
-  const { userId, userName, userRole } = useOutletContext<UserContext>();
+  const { userName, userRole } = useOutletContext<UserContext>();
   const navigate = useNavigate();
   const location = useLocation();
   const { mrn } = useParams<{ mrn: string }>();
@@ -89,23 +89,30 @@ const PatientDetail = () => {
   const [createLabOpen, setCreateLabOpen] = useState(false);
   const [createERoundOpen, setCreateERoundOpen] = useState(false);
 
+  // ── Auth Headers ─────────────────────────────────────────────
+  const token = localStorage.getItem("token");
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
   // ── Data Fetching ────────────────────────────────────────────
   const fetchPatient = useCallback(async () => {
     try {
-      const res = await apiFetch(`/api/patients/${mrn}`);
+      const res = await apiFetch(`/api/patients/${mrn}`, { headers });
       const result = await res.json();
       if (result.success) setPatient(result.data);
     } catch (err) {
       console.error("Failed to fetch patient:", err);
     }
-  }, [mrn]);
+  }, [mrn, token]);
 
   const fetchClinicalData = useCallback(async () => {
     try {
       const [notesRes, labsRes, roundsRes] = await Promise.all([
-        apiFetch(`/api/clinical/notes?patientMrn=${mrn}`),
-        apiFetch(`/api/clinical/lab-orders?patientMrn=${mrn}`),
-        apiFetch(`/api/clinical/e-rounds?patientMrn=${mrn}`),
+        apiFetch(`/api/clinical/notes?patientMrn=${mrn}`, { headers }),
+        apiFetch(`/api/clinical/lab-orders?patientMrn=${mrn}`, { headers }),
+        apiFetch(`/api/clinical/e-rounds?patientMrn=${mrn}`, { headers }),
       ]);
 
       const [notesData, labsData, roundsData] = await Promise.all([
@@ -134,7 +141,7 @@ const PatientDetail = () => {
     } catch (err) {
       console.error("Failed to fetch clinical data:", err);
     }
-  }, [mrn]);
+  }, [mrn, token]);
 
   useEffect(() => {
     const load = async () => {
@@ -195,16 +202,21 @@ const PatientDetail = () => {
 
       const res = await apiFetch("/api/clinical/notes", {
         method: "POST",
+        headers, // <-- Added headers here
         body: JSON.stringify(payload),
       });
 
       const result = await res.json();
-      if (res.ok && result.success) {
-        await fetchClinicalData();
-        setCreateOpen(false);
-      } else {
-        console.error("Failed:", result.message);
+
+      if (!res.ok || !result.success) {
+        console.error("Failed to save note:", result.message);
+        return;
       }
+
+      // Optimistic Update (Bulletproof fallback)
+      const newNote = result.data || { ...payload, _id: Date.now().toString() };
+      setNotes((prev) => [newNote, ...prev]);
+      setCreateOpen(false);
     } catch (err) {
       console.error("Error saving note:", err);
     }
@@ -243,16 +255,24 @@ const PatientDetail = () => {
 
       const res = await apiFetch("/api/clinical/lab-orders", {
         method: "POST",
+        headers, // <-- Added headers here
         body: JSON.stringify(payload),
       });
 
       const result = await res.json();
-      if (res.ok && result.success) {
-        await fetchClinicalData();
-        setCreateLabOpen(false);
-      } else {
-        console.error("Failed:", result.message);
+
+      if (!res.ok || !result.success) {
+        console.error("Failed to save lab order:", result.message);
+        return;
       }
+
+      // Optimistic Update
+      const newOrder = result.data || {
+        ...payload,
+        _id: Date.now().toString(),
+      };
+      setLabOrders((prev) => [newOrder, ...prev]);
+      setCreateLabOpen(false);
     } catch (err) {
       console.error("Error saving lab order:", err);
     }
@@ -286,16 +306,24 @@ const PatientDetail = () => {
 
       const res = await apiFetch("/api/clinical/e-rounds", {
         method: "POST",
+        headers, // <-- Added headers here
         body: JSON.stringify(payload),
       });
 
       const result = await res.json();
-      if (res.ok && result.success) {
-        await fetchClinicalData();
-        setCreateERoundOpen(false);
-      } else {
-        console.error("Failed:", result.message);
+
+      if (!res.ok || !result.success) {
+        console.error("Failed to save e-round:", result.message);
+        return;
       }
+
+      // Optimistic Update
+      const newRound = result.data || {
+        ...payload,
+        _id: Date.now().toString(),
+      };
+      setERounds((prev) => [newRound, ...prev]);
+      setCreateERoundOpen(false);
     } catch (err) {
       console.error("Error saving e-round:", err);
     }
@@ -360,7 +388,10 @@ const PatientDetail = () => {
 
   const patientDropdown = [{ label: patientName, value: patient.mrn }];
 
-  void userId;
+  const NotesSection = ClinicalNotesSection as ComponentType<{
+    notes: ClinicalNote[];
+    onCreateNote?: () => void;
+  }>;
 
   return (
     <>
@@ -397,7 +428,7 @@ const PatientDetail = () => {
       {/* Conditional Rendering for Tab Contents with Empty States */}
       {activeTab === 0 &&
         (notes.length > 0 ? (
-          <ClinicalNotesSection
+          <NotesSection
             notes={notes}
             onCreateNote={isNurse ? undefined : () => setCreateOpen(true)}
           />

@@ -78,6 +78,7 @@ const Navbar: React.FC<NavbarProps> = ({
           {/* Bell */}
           <div className="relative">
             <button
+              data-notification-bell
               onClick={(e) => {
                 e.stopPropagation();
                 setNotifOpen(!notifOpen);
@@ -117,6 +118,7 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="flex xl:hidden items-center gap-1">
           <div className="relative">
             <button
+              data-notification-bell
               onClick={(e) => {
                 e.stopPropagation();
                 setNotifOpen(!notifOpen);

@@ -1,9 +1,18 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
+import { apiFetch } from "../../utils/api";
 
 export type NotificationType =
   | "task_completed"
+  | "task_assigned"
   | "lab_order"
   | "patient_update"
+  | "patient_discharged"
   | "document_update"
   | "notice"
   | "roster"
@@ -11,122 +20,187 @@ export type NotificationType =
   | "patient_assigned";
 
 export interface Notification {
-  id: string;
+  _id: string;
+  id: string; // alias for _id, used by panel
   type: NotificationType;
   title: string;
   message: string;
   time: string;
   read: boolean;
+  relatedPatient?: string;
+  createdAt?: string;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
-  addNotification: (n: Omit<Notification, "id" | "read" | "time">) => void;
+  addNotification: (
+    n: Omit<Notification, "id" | "_id" | "read" | "time">,
+  ) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
+  refetch: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
-const typeIcon: Record<NotificationType, string> = {
-  task_completed: "Task Completed",
-  lab_order: "Lab Order",
-  patient_update: "Patient Update",
-  document_update: "Document Updated",
-  notice: "New Notice",
-  roster: "Roster Update",
-  swap_request: "Swap Request",
-  patient_assigned: "Patient Assigned",
+// ── Time formatting ─────────────────────────────────────────────
+const formatTimeAgo = (dateStr: string): string => {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  return date.toLocaleDateString();
 };
 
-// Initial mock notifications
-const initialNotifications: Notification[] = [
-  {
-    id: "n1",
-    type: "task_completed",
-    title: "Task Completed",
-    message: "Emily Chen completed 'Administer morning medications'",
-    time: "2 min ago",
-    read: false,
-  },
-  {
-    id: "n2",
-    type: "lab_order",
-    title: "Lab Results Ready",
-    message: "CBC results for John Doe (MRN001234) are now available",
-    time: "15 min ago",
-    read: false,
-  },
-  {
-    id: "n3",
-    type: "notice",
-    title: "New Notice Posted",
-    message: "System Maintenance Scheduled for tonight at 2:00 AM",
-    time: "1 hour ago",
-    read: false,
-  },
-  {
-    id: "n4",
-    type: "swap_request",
-    title: "Swap Request Approved",
-    message: "Your shift swap for Friday Mar 13 has been approved",
-    time: "2 hours ago",
-    read: true,
-  },
-  {
-    id: "n5",
-    type: "patient_assigned",
-    title: "New Patient Assigned",
-    message: "Alice Cooper (MRN001238) has been assigned to you by Admin",
-    time: "3 hours ago",
-    read: true,
-  },
-  {
-    id: "n6",
-    type: "document_update",
-    title: "Clinical Note Updated",
-    message: "Progress Note for Mary Smith updated by Dr. Sarah Johnson",
-    time: "5 hours ago",
-    read: true,
-  },
-];
+// ── Transform backend notification to frontend shape ────────────
+interface BackendNotification {
+  _id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  relatedPatient?: string;
+}
+
+const transformNotification = (n: BackendNotification): Notification => ({
+  ...n,
+  id: n._id,
+  time: formatTimeAgo(n.createdAt),
+});
+
+// ── Polling interval (30 seconds) ───────────────────────────────
+const POLL_INTERVAL = 30000;
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [notifications, setNotifications] =
-    useState<Notification[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // ── Fetch notifications from backend ──────────────────────────
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
+      const res = await apiFetch("/api/notifications");
+      const data = await res.json();
+
+      if (data.success) {
+        const transformed = data.data.map(transformNotification);
+        setNotifications(transformed);
+        setUnreadCount(transformed.filter((n: Notification) => !n.read).length);
+      }
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  }, []);
+
+  // ── Poll for new notifications ────────────────────────────────
+  useEffect(() => {
+    let active = true;
+
+    const poll = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const res = await apiFetch("/api/notifications");
+        const data = await res.json();
+
+        if (active && data.success) {
+          const transformed = data.data.map(transformNotification);
+          setNotifications(transformed);
+          setUnreadCount(
+            transformed.filter((n: Notification) => !n.read).length,
+          );
+        }
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err);
+      }
+    };
+
+    // Initial fetch after a microtask delay (avoids the lint rule)
+    const timeout = setTimeout(poll, 0);
+    const interval = setInterval(poll, POLL_INTERVAL);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // ── Actions ───────────────────────────────────────────────────
   const addNotification = useCallback(
-    (n: Omit<Notification, "id" | "read" | "time">) => {
+    (n: Omit<Notification, "id" | "_id" | "read" | "time">) => {
+      // Local optimistic add (for events triggered by current user's actions)
       const newNotif: Notification = {
         ...n,
-        id: `n-${Date.now()}`,
+        _id: `local-${Date.now()}`,
+        id: `local-${Date.now()}`,
         read: false,
         time: "Just now",
       };
       setNotifications((prev) => [newNotif, ...prev]);
+      setUnreadCount((prev) => prev + 1);
     },
     [],
   );
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    );
-  }, []);
+  const markAsRead = useCallback(
+    async (id: string) => {
+      // Optimistic update
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
 
-  const markAllAsRead = useCallback(() => {
+      try {
+        await apiFetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+      } catch (err) {
+        console.error("Failed to mark as read:", err);
+        fetchNotifications(); // Revert on failure
+      }
+    },
+    [fetchNotifications],
+  );
+
+  const markAllAsRead = useCallback(async () => {
+    // Optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
+    setUnreadCount(0);
 
-  const clearAll = useCallback(() => {
+    try {
+      await apiFetch("/api/notifications/read-all", { method: "PATCH" });
+    } catch (err) {
+      console.error("Failed to mark all as read:", err);
+      fetchNotifications();
+    }
+  }, [fetchNotifications]);
+
+  const clearAll = useCallback(async () => {
+    // Optimistic update
     setNotifications([]);
-  }, []);
+    setUnreadCount(0);
+
+    try {
+      await apiFetch("/api/notifications", { method: "DELETE" });
+    } catch (err) {
+      console.error("Failed to clear notifications:", err);
+      fetchNotifications();
+    }
+  }, [fetchNotifications]);
 
   return (
     <NotificationContext.Provider
@@ -137,6 +211,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         markAsRead,
         markAllAsRead,
         clearAll,
+        refetch: fetchNotifications,
       }}
     >
       {children}
@@ -153,6 +228,3 @@ export const useNotifications = () => {
     );
   return ctx;
 };
-
-// eslint-disable-next-line react-refresh/only-export-components
-export { typeIcon };

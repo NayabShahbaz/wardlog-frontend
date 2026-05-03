@@ -219,10 +219,6 @@ const PatientManagement = () => {
     try {
       const res = await apiFetch(`/api/patients/${editData.mrn}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           ...editData,
           assignedDoctor: getRefId(editData.assignedDoctor),
@@ -253,10 +249,6 @@ const PatientManagement = () => {
     try {
       const res = await apiFetch(`/api/patients/${mrn}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ status: newStatus }),
       });
 
