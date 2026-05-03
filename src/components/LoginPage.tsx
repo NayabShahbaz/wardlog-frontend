@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HiOutlineUser, HiOutlineLockClosed } from "react-icons/hi2";
+import { apiFetch } from "../utils/api";
 
 const roles = ["Admin", "Doctor", "Nurse"];
 
@@ -31,12 +32,10 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      // Replaced raw fetch with project's apiFetch utility
+      const response = await apiFetch("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ email: email.toLowerCase(), password, role }),
       });
 
       const data = await response.json();
@@ -47,27 +46,28 @@ const LoginPage = () => {
         return;
       }
 
-      // Save token and user info so protected routes can use them
+      // Save token and user info for session management
       localStorage.setItem("token", data.data.token);
       localStorage.setItem("user", JSON.stringify(data.data.user));
 
-      // Navigate to the correct dashboard based on the server-verified role
+      // Redirect to specific dashboard based on server-verified role
       const route = roleRoutes[data.data.user.role];
       if (route) {
         navigate(route);
+      } else {
+        setError("Unauthorized role access detected.");
+        setIsLoading(false);
       }
-    } catch {
-      setError("Server connection failed. Make sure the backend is running.");
+    } catch (err) {
+      setError("Server connection failed. Please check your network.");
       setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-800 flex flex-col">
-      {/* Main area */}
       <div className="flex-1 flex items-center justify-center bg-[#d6e8ee] px-4 py-8">
         <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm px-6 sm:px-8 py-10">
-          {/* Logo */}
           <div className="flex flex-col items-center mb-6">
             <div className="w-14 h-14 bg-[#1a5276] rounded-xl flex items-center justify-center mb-3">
               <span className="text-white text-xl font-bold">W+</span>
@@ -85,7 +85,6 @@ const LoginPage = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Email Address
@@ -103,7 +102,6 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Password
@@ -121,7 +119,6 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Role Selector */}
             <div className="relative">
               <button
                 type="button"
@@ -165,7 +162,6 @@ const LoginPage = () => {
               )}
             </div>
 
-            {/* Sign In */}
             <button
               type="submit"
               disabled={isLoading}

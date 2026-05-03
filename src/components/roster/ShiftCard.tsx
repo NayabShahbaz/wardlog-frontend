@@ -1,7 +1,8 @@
 import React from "react";
 
+// Interface aligned with Member 2's MongoDB backend schema[cite: 15]
 export interface StaffShift {
-  id: string;
+  _id: string; // Updated from 'id' to '_id' for MongoDB compatibility[cite: 15]
   name: string;
   role: string;
   ward: string;
@@ -33,8 +34,8 @@ const ShiftCard: React.FC<ShiftCardProps> = ({ label, staff }) => {
         <div className="space-y-2">
           {staff.map((s) => (
             <div
-              key={s.id}
-              className="py-2"
+              key={s._id} // Using MongoDB identifier[cite: 15]
+              className="py-2 last:border-0"
               style={{
                 borderBottomWidth: "1px",
                 borderBottomStyle: "solid",
@@ -49,7 +50,7 @@ const ShiftCard: React.FC<ShiftCardProps> = ({ label, staff }) => {
           ))}
         </div>
       ) : (
-        <p className="text-sm text-gray-400">No staff scheduled</p>
+        <p className="text-sm text-gray-400 italic">No staff scheduled</p>
       )}
     </div>
   );

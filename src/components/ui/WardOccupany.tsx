@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HiOutlineComputerDesktop, HiOutlineUsers } from "react-icons/hi2";
+import { apiFetch } from "../../utils/api";
 
 type BedStatus = "empty" | "stable" | "monitoring" | "critical";
 
@@ -11,6 +13,7 @@ interface Bed {
 }
 
 interface Ward {
+  _id: string;
   name: string;
   totalBeds: number;
   beds: Bed[];
@@ -49,96 +52,6 @@ const statusConfig: Record<
     text: "text-gray-700",
   },
 };
-
-const mockWards: Ward[] = [
-  {
-    name: "Ward A",
-    totalBeds: 20,
-    beds: [
-      { number: 1, status: "stable", patientName: "J. Doe", mrn: "MRN001234" },
-      { number: 2, status: "empty" },
-      {
-        number: 3,
-        status: "monitoring",
-        patientName: "M. Smith",
-        mrn: "MRN001235",
-      },
-      { number: 4, status: "empty" },
-      { number: 5, status: "empty" },
-      { number: 6, status: "empty" },
-      {
-        number: 7,
-        status: "stable",
-        patientName: "J. Wilson",
-        mrn: "MRN001237",
-      },
-      { number: 8, status: "empty" },
-      { number: 9, status: "empty" },
-      {
-        number: 10,
-        status: "critical",
-        patientName: "P. Moore",
-        mrn: "MRN001239",
-      },
-      { number: 11, status: "empty" },
-      { number: 12, status: "empty" },
-      { number: 13, status: "empty" },
-      { number: 14, status: "empty" },
-      {
-        number: 15,
-        status: "monitoring",
-        patientName: "D. Thomas",
-        mrn: "MRN001240",
-      },
-      { number: 16, status: "empty" },
-      { number: 17, status: "empty" },
-      { number: 18, status: "empty" },
-      { number: 19, status: "empty" },
-      { number: 20, status: "empty" },
-    ],
-  },
-  {
-    name: "Ward B",
-    totalBeds: 20,
-    beds: [
-      { number: 1, status: "empty" },
-      {
-        number: 2,
-        status: "stable",
-        patientName: "M. Taylor",
-        mrn: "MRN001241",
-      },
-      { number: 3, status: "empty" },
-      { number: 4, status: "empty" },
-      {
-        number: 5,
-        status: "critical",
-        patientName: "R. Williams",
-        mrn: "MRN001242",
-      },
-      { number: 6, status: "empty" },
-      { number: 7, status: "empty" },
-      {
-        number: 8,
-        status: "monitoring",
-        patientName: "E. Anderson",
-        mrn: "MRN001238",
-      },
-      { number: 9, status: "empty" },
-      { number: 10, status: "empty" },
-      { number: 11, status: "empty" },
-      { number: 12, status: "stable", patientName: "K. Lee", mrn: "MRN001243" },
-      { number: 13, status: "empty" },
-      { number: 14, status: "empty" },
-      { number: 15, status: "empty" },
-      { number: 16, status: "empty" },
-      { number: 17, status: "empty" },
-      { number: 18, status: "empty" },
-      { number: 19, status: "empty" },
-      { number: 20, status: "empty" },
-    ],
-  },
-];
 
 const Legend = () => (
   <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
@@ -204,6 +117,29 @@ const BedCell = ({ bed, onClick }: { bed: Bed; onClick?: () => void }) => {
 const WardOccupancy = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ── Member 2: Fetch Ward Occupancy (Ward Coordination) ──[cite: 11, 15]
+  const fetchWardData = async () => {
+    try {
+      setLoading(true);
+      const res = await apiFetch("/api/wards/occupancy");
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setWards(result.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch ward occupancy:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWardData();
+  }, []);
+
   const basePath = location.pathname.startsWith("/nurse")
     ? "/nurse"
     : location.pathname.startsWith("/admin")
@@ -216,6 +152,8 @@ const WardOccupancy = () => {
     }
   };
 
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading bed map...</div>;
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
       <div className="flex items-center gap-2 mb-6">
@@ -224,19 +162,14 @@ const WardOccupancy = () => {
       </div>
 
       <div className="space-y-8">
-        {mockWards.map((ward) => {
+        {wards.map((ward) => {
           const occupied = ward.beds.filter((b) => b.status !== "empty").length;
           const pct = Math.round((occupied / ward.totalBeds) * 100);
 
           return (
             <div
-              key={ward.name}
-              className="rounded-xl p-4"
-              style={{
-                borderWidth: "1px",
-                borderStyle: "solid",
-                borderColor: "#e5e7eb",
-              }}
+              key={ward._id}
+              className="rounded-xl p-4 border border-gray-200"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <h3 className="text-base font-bold text-gray-900">
@@ -255,14 +188,7 @@ const WardOccupancy = () => {
                 ))}
               </div>
 
-              <div
-                className="flex items-center justify-between pt-3"
-                style={{
-                  borderTopWidth: "1px",
-                  borderTopStyle: "solid",
-                  borderTopColor: "#f3f4f6",
-                }}
-              >
+              <div className="flex items-center justify-between pt-3 border-t border-gray-50">
                 <div className="flex items-center gap-1.5 text-sm text-gray-500">
                   <HiOutlineUsers className="w-4 h-4" />
                   <span>
@@ -276,6 +202,11 @@ const WardOccupancy = () => {
             </div>
           );
         })}
+        {wards.length === 0 && !loading && (
+          <div className="text-center py-12 text-sm text-gray-400">
+            No ward data available
+          </div>
+        )}
       </div>
     </div>
   );

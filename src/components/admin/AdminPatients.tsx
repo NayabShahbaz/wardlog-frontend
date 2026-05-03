@@ -445,19 +445,24 @@ const AdminPatients = () => {
   const fetchDoctors = async () => {
     try {
       // Hit the endpoint that triggers the controller function above
-      const res = await apiFetch("/api/staff/doctors");
+      const res = await apiFetch("/api/staff");
       const result = await res.json();
 
-      if (res.ok && result.success) {
-        // Map the result.data (which contains Users) to the format the dropdown expects
-        const docs = result.data.map((u: any) => ({
-          _id: u._id,
-          name: u.name || "Unknown Doctor",
-          role: u.role,
-        }));
+     if (res.ok && result.success) {
+     // Filter for Doctors only and map to the format expected by the dropdown
+     const docs = result.data
+      .filter((member: any) => member.role === "Doctor") // Filter logic
+      .map((u: any) => ({
+      _id: u._id,
+      name: u.name || "Unknown Doctor",
+      role: u.role,
+      specialty: u.specialty || "General", // Member 2 schema field[cite: 30]
+      department: u.department || "Medicine" // Member 2 schema field[cite: 30]
+    }));
 
-        setDoctors(docs);
-      } else {
+     setDoctors(docs);
+    
+    } else {
         console.error("Failed to load doctors:", result.message);
       }
     } catch (err) {

@@ -1,84 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SearchBar } from "../ui";
 import StaffGroup from "./StaffGroup";
 import { type StaffMember } from "./StaffCard";
-
-// ── Consistent dummy data used across the app ───────────────────────
-const allStaff: StaffMember[] = [
-  {
-    id: "staff-1",
-    name: "Dr. Sarah Johnson",
-    role: "Doctor",
-    specialty: "Internal Medicine",
-    department: "General Medicine",
-    phone: "555-0101",
-    email: "sarah.johnson@hospital.com",
-  },
-  {
-    id: "staff-2",
-    name: "Dr. Michael John",
-    role: "Doctor",
-    specialty: "Internal Medicine",
-    department: "General Medicine",
-    phone: "555-0102",
-    email: "michael.john@hospital.com",
-  },
-  {
-    id: "staff-3",
-    name: "Emily Chen",
-    role: "Nurse",
-    department: "Ward A",
-    phone: "555-0201",
-    email: "emily.chen@hospital.com",
-  },
-  {
-    id: "staff-4",
-    name: "Jessica Wilson",
-    role: "Nurse",
-    department: "Ward B",
-    phone: "555-0202",
-    email: "jessica.wilson@hospital.com",
-  },
-  {
-    id: "staff-5",
-    name: "Michael Brown",
-    role: "Nurse",
-    department: "Ward C",
-    phone: "555-0203",
-    email: "michael.brown@hospital.com",
-  },
-  {
-    id: "staff-6",
-    name: "James Wilson",
-    role: "Nurse",
-    department: "Ward B",
-    phone: "555-0204",
-    email: "james.wilson@hospital.com",
-  },
-  {
-    id: "staff-7",
-    name: "Robert Davis",
-    role: "Admin",
-    department: "Administration",
-    phone: "555-0301",
-    email: "robert.davis@hospital.com",
-  },
-  {
-    id: "staff-8",
-    name: "Linda Martinez",
-    role: "Admin",
-    department: "Administration",
-    phone: "555-0302",
-    email: "linda.martinez@hospital.com",
-  },
-];
+import { apiFetch } from "../../utils/api";
 
 const roleOrder = ["Doctors", "Nurses", "Admin"];
 
 const StaffDirectory = () => {
+  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const filtered = allStaff.filter((s) => {
+  // ── Member 2: Fetch Staff (Ward Coordination Responsibility) ────
+  useEffect(() => {
+    const fetchStaffData = async () => {
+      try {
+        setLoading(true);
+        const res = await apiFetch("/api/staff");
+        const result = await res.json();
+        if (res.ok && result.success) {
+          setStaff(result.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch staff directory:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStaffData();
+  }, []);
+
+  const filtered = staff.filter((s) => {
     const q = search.toLowerCase();
     return (
       s.name.toLowerCase().includes(q) ||
@@ -88,7 +40,7 @@ const StaffDirectory = () => {
     );
   });
 
-  // Group by role
+  // Group by role according to Member 2's schema[cite: 17, 20]
   const grouped: Record<string, StaffMember[]> = {};
   filtered.forEach((s) => {
     const groupName =
@@ -96,6 +48,10 @@ const StaffDirectory = () => {
     if (!grouped[groupName]) grouped[groupName] = [];
     grouped[groupName].push(s);
   });
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Loading directory...</div>;
+  }
 
   return (
     <div className="space-y-6">

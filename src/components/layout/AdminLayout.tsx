@@ -1,4 +1,4 @@
-import { useState, type PropsWithChildren } from "react";
+import { useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import Navbar, { type NavItem } from "./Navbar";
 import {
@@ -27,19 +27,21 @@ const readStoredUser = (): StoredUser | null => {
     return null;
   }
   try {
-    return JSON.parse(stored) as StoredUser;
+    const user = JSON.parse(stored);
+    // Explicit check for Admin role to prevent unauthorized access
+    if (user.role !== "Admin") return null;
+    return user as StoredUser;
   } catch {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
     return null;
   }
 };
 
-const AdminLayout = ({ children }: PropsWithChildren) => {
+const AdminLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user] = useState<StoredUser | null>(readStoredUser);
 
+  // If no user or session expired, redirect immediately[cite: 15, 18]
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -48,9 +50,7 @@ const AdminLayout = ({ children }: PropsWithChildren) => {
     {
       label: "Dashboard",
       icon: HiOutlineClipboard,
-      active:
-        location.pathname === "/admin/dashboard" ||
-        location.pathname === "/admin",
+      active: location.pathname === "/admin/dashboard",
       onClick: () => navigate("/admin/dashboard"),
     },
     {
@@ -68,6 +68,7 @@ const AdminLayout = ({ children }: PropsWithChildren) => {
     {
       label: "Staff Directory",
       icon: HiOutlineUserGroup,
+      // FIX: Matches 'staff-directory' in App_3.tsx
       active: location.pathname.startsWith("/admin/staff-directory"),
       onClick: () => navigate("/admin/staff-directory"),
     },
@@ -100,7 +101,8 @@ const AdminLayout = ({ children }: PropsWithChildren) => {
         onLogout={() => logout()}
       />
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
-        {children ?? <Outlet context={contextValue} />}
+        {/* FIX: Removed children check to force Outlet rendering for nested routes */}
+        <Outlet context={contextValue} />
       </main>
     </div>
   );

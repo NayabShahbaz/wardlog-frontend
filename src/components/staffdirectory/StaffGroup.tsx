@@ -24,7 +24,8 @@ const StaffGroup: React.FC<StaffGroupProps> = ({ role, members }) => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {members.map((m) => (
-          <StaffCard key={m.id} staff={m} />
+          /* Using _id instead of id to match Member 2's backend schema[cite: 20] */
+          <StaffCard key={m._id} staff={m} />
         ))}
       </div>
     </div>

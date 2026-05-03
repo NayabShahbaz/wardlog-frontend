@@ -7,8 +7,9 @@ import {
 } from "react-icons/hi2";
 import Badge from "../ui/Badge";
 
+// Interface aligned with Member 2's MongoDB backend schema[cite: 11, 20]
 export interface StaffMember {
-  id: string;
+  _id: string; // Updated from 'id' to '_id' for backend compatibility[cite: 20]
   name: string;
   role: string;
   specialty?: string;
@@ -42,7 +43,7 @@ const StaffCard: React.FC<StaffCardProps> = ({ staff }) => {
         </div>
       </div>
 
-      {/* Details */}
+      {/* Details - Focusing on Member 2's Ward Coordination data[cite: 11, 20] */}
       <div className="space-y-2">
         {staff.specialty && (
           <div className="flex items-center gap-2">

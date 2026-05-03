@@ -7,7 +7,8 @@ import {
 import React, { useState } from "react";
 
 export interface Notice {
-  id: string;
+  // Aligned with Member 2's MongoDB backend identifier[cite: 16, 20]
+  id: string; 
   title: string;
   content: string;
   category: string;
@@ -49,7 +50,8 @@ const priorityVariant = (p: string): BadgeVariant => {
     medium: "orange",
     low: "gray",
   };
-  return map[p] ?? "gray";
+  // Supporting lowercase transformation from Member 2's toNotice helper[cite: 16]
+  return map[p.toLowerCase()] ?? "gray";
 };
 
 const NoticeCard: React.FC<NoticeCardProps> = ({
@@ -89,6 +91,7 @@ const NoticeCard: React.FC<NoticeCardProps> = ({
             />
           )}
 
+          {/* Member 2 logic for managing system-wide notices[cite: 13, 16] */}
           {showDelete && onDelete && (
             <>
               {!isConfirming ? (
@@ -128,7 +131,7 @@ const NoticeCard: React.FC<NoticeCardProps> = ({
       {/* Content */}
       <p className="text-sm text-gray-600 leading-relaxed">{notice.content}</p>
 
-      {/* Expiry */}
+      {/* Expiry - Standardized via Member 2's ISO date logic[cite: 13, 16] */}
       {notice.expiresAt && (
         <p className="text-xs text-gray-400 mt-3">
           Expires: {notice.expiresAt}

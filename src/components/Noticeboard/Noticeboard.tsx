@@ -22,7 +22,7 @@ const priorityOptions = [
   { label: "Low", value: "Low" },
 ];
 
-// Backend notice shape
+// Backend notice shape as provided by Member 2's API[cite: 10]
 interface BackendNotice {
   _id: string;
   title: string;
@@ -34,7 +34,7 @@ interface BackendNotice {
   expiresAt?: string;
 }
 
-// Transform backend notice to the shape NoticeCard expects
+// Transform backend notice to the shape NoticeCard expects[cite: 10]
 const toNotice = (n: BackendNotice): Notice => ({
   id: n._id,
   title: n.title,
@@ -46,7 +46,7 @@ const toNotice = (n: BackendNotice): Notice => ({
       ? n.author.name
       : typeof n.author === "string"
         ? n.author
-        : "Unknown",
+        : "Admin",
   date: n.createdAt
     ? new Date(n.createdAt).toLocaleDateString()
     : new Date().toLocaleDateString(),
@@ -56,7 +56,7 @@ const toNotice = (n: BackendNotice): Notice => ({
 });
 
 export default function NoticeboardPage() {
-  const { userId, userName, userRole } = useOutletContext<UserContextType>();
+  const { userName, userRole } = useOutletContext<UserContextType>();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,7 +72,7 @@ export default function NoticeboardPage() {
     expiresAt: "",
   });
 
-  // ── Fetch Notices ─────────────────────────────────────────────
+  // ── Fetch Notices (Member 2 Responsibility)[cite: 10, 13] ──
   const fetchNotices = useCallback(async () => {
     try {
       const res = await apiFetch("/api/notices");
@@ -91,7 +91,7 @@ export default function NoticeboardPage() {
     fetchNotices();
   }, [fetchNotices]);
 
-  // ── Create Notice ─────────────────────────────────────────────
+  // ── Create Notice (Member 2 Responsibility)[cite: 13] ──
   const handlePost = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
       setError("Please provide both a title and content for the notice.");
@@ -104,10 +104,12 @@ export default function NoticeboardPage() {
         content: formData.content,
         category: formData.category,
         priority: formData.priority,
+        author: userName || "Admin", // Explicitly sent per Member 2 schema[cite: 13]
+        createdAt: new Date().toISOString(), // Standardized ISO format[cite: 13]
       };
 
       if (formData.expiresAt) {
-        payload.expiresAt = formData.expiresAt;
+        payload.expiresAt = new Date(formData.expiresAt).toISOString();
       }
 
       const res = await apiFetch("/api/notices", {
@@ -129,7 +131,7 @@ export default function NoticeboardPage() {
     }
   };
 
-  // ── Delete Notice ─────────────────────────────────────────────
+  // ── Delete Notice (Member 2 Responsibility)[cite: 13] ──
   const handleDelete = async (id: string) => {
     try {
       const res = await apiFetch(`/api/notices/${id}`, {
@@ -138,7 +140,8 @@ export default function NoticeboardPage() {
 
       const result = await res.json();
       if (res.ok && result.success) {
-        await fetchNotices();
+        // Functional update ensures UI consistency during deletions[cite: 13]
+        setNotices((prev) => prev.filter((n) => n.id !== id));
       } else {
         console.error("Delete failed:", result.message);
       }
@@ -159,14 +162,10 @@ export default function NoticeboardPage() {
     });
   };
 
-  // Keep userId reference alive for future use
-  void userId;
-
   if (loading) return <div className="p-8 text-center">Loading notices...</div>;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -188,14 +187,13 @@ export default function NoticeboardPage() {
         )}
       </div>
 
-      {/* Notice List */}
       <div className="space-y-4">
         {notices.length > 0 ? (
           notices.map((notice) => (
             <NoticeCard
               key={notice.id}
               notice={notice}
-              showDelete={isAdmin || notice.author === userName}
+              showDelete={isAdmin}
               onDelete={handleDelete}
             />
           ))
@@ -206,7 +204,6 @@ export default function NoticeboardPage() {
         )}
       </div>
 
-      {/* Create Modal */}
       <Modal
         title="Post New Notice"
         isOpen={isModalOpen}

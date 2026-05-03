@@ -25,6 +25,11 @@ interface StoredUser {
   email?: string;
 }
 
+interface DoctorLayoutProps extends PropsWithChildren {
+  userName?: string; // Prop to support direct passing from App.tsx[cite: 30]
+  userRole?: string; // Prop to support direct passing from App.tsx[cite: 30]
+}
+
 // Read once, synchronously, outside React's render cycle
 const readStoredUser = (): StoredUser | null => {
   const token = localStorage.getItem("token");
@@ -44,14 +49,14 @@ const readStoredUser = (): StoredUser | null => {
   }
 };
 
-const DoctorLayout = ({ children }: PropsWithChildren) => {
+const DoctorLayout = ({ children, userName: propName, userRole: propRole }: DoctorLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Lazy initializer — runs once on mount, no effect needed
+  // Lazy initializer — runs once on mount
   const [user] = useState<StoredUser | null>(readStoredUser);
 
-  // No user? Redirect declaratively (no effect, no setState)
+  // No user? Redirect declaratively[cite: 30]
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -64,6 +69,7 @@ const DoctorLayout = ({ children }: PropsWithChildren) => {
     ? "/nurse"
     : "/doctor";
 
+  // Navigation items synced with Member 2's Ward Coordination module[cite: 11, 15]
   const defaultNavItems: NavItem[] = [
     {
       label: "Dashboard",
@@ -103,18 +109,19 @@ const DoctorLayout = ({ children }: PropsWithChildren) => {
     onClick: () => navigate(item.path),
   }));
 
+  // Prioritize props passed from App.tsx (for Nurse Jane Doe) or fallback to stored user[cite: 30]
   const contextValue: UserContextType = {
     userId: user.id,
-    userName: user.name,
-    userRole: user.role,
+    userName: propName || user.name,
+    userRole: propRole || user.role,
   };
 
   return (
     <div className="min-h-screen bg-[#f0f4f8] flex flex-col">
       <Navbar
         items={defaultNavItems}
-        userName={user.name}
-        userRole={user.role}
+        userName={contextValue.userName}
+        userRole={contextValue.userRole}
         onLogout={handleLogout}
       />
 

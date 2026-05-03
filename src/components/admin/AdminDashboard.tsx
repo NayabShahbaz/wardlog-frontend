@@ -72,30 +72,39 @@ const AdminDashboard = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [stats, setStats] = useState({ totalStaff: 0, activeWards: 0 });
+
+  // ── Fetching ──────────────────────────────────────────────────
   // ── Fetching ──────────────────────────────────────────────────
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [staffRes, swapRes, noticeRes, patientRes] = await Promise.all([
+        // Correctly define all 5 response variables here
+        const [staffRes, swapRes, noticeRes, patientRes, statsRes] = await Promise.all([
           apiFetch("/api/staff"),
           apiFetch("/api/roster/swap-requests"),
           apiFetch("/api/notices"),
           apiFetch("/api/patients"),
+          apiFetch("/api/admin/dashboard") // Member 2's endpoint
         ]);
 
-        const [staffData, swapData, noticeData, patientData] =
-          await Promise.all([
-            staffRes.json(),
-            swapRes.json(),
-            noticeRes.json(),
-            patientRes.json(),
-          ]);
+        // statsRes is now defined, so .json() will no longer error[cite: 31]
+        const [staffData, swapData, noticeData, patientData, statsData] = 
+        await Promise.all([
+          staffRes.json(), 
+          swapRes.json(), 
+          noticeRes.json(), 
+          patientRes.json(), 
+          statsRes.json()
+        ]);
 
         if (staffData.success) setStaff(staffData.data);
         if (swapData.success) setSwapRequests(swapData.data);
         if (noticeData.success) setNotices(noticeData.data);
         if (patientData.success) setPatients(patientData.data);
+        // Map the backend data to your stats state
+        if (statsData.success) setStats(statsData.data); 
       } catch (err) {
         console.error("Admin dashboard fetch error:", err);
       } finally {
@@ -105,7 +114,6 @@ const AdminDashboard = () => {
 
     fetchData();
   }, []);
-
   // ── Derived stats ─────────────────────────────────────────────
   const doctors = staff.filter((s) => s.role === "Doctor");
   const nurses = staff.filter((s) => s.role === "Nurse");
@@ -120,25 +128,28 @@ const AdminDashboard = () => {
     return req.requester?.name ?? "Unknown";
   };
 
-  const statCards = [
+const statCards = [
     {
       label: "Total Staff",
-      value: String(staff.length),
+      // stats.totalStaff is provided by Member 2's dashboard API[cite: 30, 31]
+      value: stats.totalStaff.toString(),      
       sub: `${doctors.length} doctors, ${nurses.length} nurses, ${admins.length} admin`,
       color: "bg-blue-100",
       iconColor: "text-blue-600",
       icon: HiOutlineUsers,
     },
     {
-      label: "Active Patients",
-      value: String(activePatients.length),
-      sub: `${patients.filter((p) => p.status === "admitted").length} admitted`,
+      label: "Active Wards", // Changed from "Active Patients" to match Member 2's API
+      // Fixed the typo "activePa" to "activeWards"
+      value: stats.activeWards.toString(), 
+      sub: "Hospital operational units",
       color: "bg-green-100",
       iconColor: "text-green-600",
       icon: HiOutlineBuildingOffice2,
     },
     {
       label: "Pending Approvals",
+      // Pending swaps are part of Member 2's roster responsibilities
       value: String(pendingSwaps.length),
       sub: pendingSwaps.length > 0 ? "Requires action" : "All clear",
       color: "bg-orange-100",
@@ -147,8 +158,9 @@ const AdminDashboard = () => {
     },
     {
       label: "Active Notices",
+      // Notices are managed by Member 2[cite: 30]
       value: String(notices.length),
-      sub: "Hospital-wide",
+      sub: "Hospital-wide announcements",
       color: "bg-red-100",
       iconColor: "text-red-600",
       icon: HiOutlineBell,
@@ -306,8 +318,8 @@ const AdminDashboard = () => {
             >
               <HiOutlineUsers className="w-5 h-5" /> Manage Patients
             </button>
-            <button
-              onClick={() => navigate("/admin/staff-directory")}
+           <button
+              onClick={() => navigate("/admin/staff")} 
               className="w-full flex items-center justify-center gap-2 py-3 bg-[#22c55e] text-white rounded-xl text-sm font-bold hover:bg-[#16a34a] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineUserGroup className="w-5 h-5" /> Staff Directory

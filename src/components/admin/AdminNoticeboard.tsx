@@ -98,6 +98,8 @@ const AdminNoticeboard = () => {
           content: formData.content,
           category: formData.category,
           priority: formData.priority,
+          author: userName || "Admin", // Explicitly sent to match Member 2's model
+          date: new Date().toISOString(), // Standardized ISO format
         }),
       });
 
@@ -116,21 +118,23 @@ const AdminNoticeboard = () => {
   };
 
   // ── Delete ────────────────────────────────────────────────────
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await apiFetch(`/api/notices/${id}`, {
-        method: "DELETE",
-      });
-      const result = await res.json();
-      if (res.ok && result.success) {
-        await fetchNotices();
-      } else {
-        console.error("Delete failed:", result.message);
-      }
-    } catch (err) {
-      console.error("Error deleting notice:", err);
+  // Optimized handleDelete for AdminNoticeboard_6.tsx
+const handleDelete = async (id: string) => {
+  try {
+    const res = await apiFetch(`/api/notices/${id}`, {
+      method: "DELETE",
+    });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      // Functional state update is safer for concurrent actions
+      setNotices((prev) => prev.filter((n) => n.id !== id));
+    } else {
+      console.error("Delete failed:", result.message);
     }
-  };
+  } catch (err) {
+    console.error("Error deleting notice:", err);
+  }
+};
 
   const closeModal = () => {
     setCreateOpen(false);

@@ -24,6 +24,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ day }) => {
     >
       <h3 className="text-base font-bold text-gray-900 mb-4">{day.date}</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* These labels and staff assignments align with Member 2's backend roster logic[cite: 11, 15] */}
         <ShiftCard label="Morning" staff={day.morning} />
         <ShiftCard label="Afternoon" staff={day.afternoon} />
         <ShiftCard label="Night" staff={day.night} />

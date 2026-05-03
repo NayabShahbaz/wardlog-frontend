@@ -29,13 +29,15 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Doctor Routes - NESTED inside DoctorLayout */}
+          {/* Doctor Routes - Clinical & Ward Modules */}
           <Route path="/doctor" element={<DoctorLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DoctorDashboard />} />
             <Route path="patients" element={<PatientManagement />} />
             <Route path="patients/:mrn" element={<PatientDetail />} />
             <Route path="clinical-docs" element={<ClinicalDocumentation />} />
+            
+            {/* Member 2 Ward Coordination Responsibility[cite: 11, 15] */}
             <Route path="ward-dashboard" element={<WardDash />} />
             <Route path="noticeboard" element={<Noticeboard />} />
             <Route path="tasks" element={<TaskPage />} />
@@ -43,7 +45,7 @@ function App() {
             <Route path="directory" element={<StaffDirectory />} />
           </Route>
 
-          {/* Admin Routes - NESTED inside AdminLayout */}
+          {/* Admin Routes - Member 2 System Administration Responsibility[cite: 11] */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
@@ -54,7 +56,7 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
-          {/* Nurse Routes*/}
+          {/* Nurse Routes - Matching Clinical & Ward Access[cite: 15] */}
           <Route
             path="/nurse"
             element={
@@ -66,6 +68,8 @@ function App() {
             <Route path="patients" element={<PatientManagement />} />
             <Route path="patients/:mrn" element={<PatientDetail />} />
             <Route path="clinical-docs" element={<ClinicalDocumentation />} />
+            
+            {/* Member 2 Ward Coordination Access for Nurses[cite: 11, 15] */}
             <Route path="ward-dashboard" element={<WardDash />} />
             <Route path="noticeboard" element={<Noticeboard />} />
             <Route path="tasks" element={<TaskPage />} />

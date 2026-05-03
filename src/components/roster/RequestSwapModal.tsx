@@ -3,9 +3,10 @@ import Modal from "../ui/Modal";
 import SelectField from "../ui/SelectField";
 import InputField from "../ui/InputField";
 
+// Interface updated to match Member 2's backend schema[cite: 11, 15]
 export interface SwapRequest {
   id: string;
-  myShift: string;
+  shift: string; // Updated from myShift[cite: 15]
   swapWith: string;
   requestedDate: string;
   reason: string;
@@ -27,23 +28,24 @@ const RequestSwapModal: React.FC<RequestSwapModalProps> = ({
   shiftOptions,
   staffOptions,
 }) => {
-  const [myShift, setMyShift] = useState("");
+  const [shift, setShift] = useState("");
   const [swapWith, setSwapWith] = useState("");
   const [requestedDate, setRequestedDate] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = () => {
-    if (!myShift || !swapWith || !requestedDate || !reason.trim()) {
+    if (!shift || !swapWith || !requestedDate || !reason.trim()) {
       setError("Please fill all required fields.");
       return;
     }
-    onSubmit({ myShift, swapWith, requestedDate, reason });
+    // Submitting with keys compatible with Member 2's API[cite: 15]
+    onSubmit({ shift, swapWith, requestedDate, reason });
     resetAndClose();
   };
 
   const resetAndClose = () => {
-    setMyShift("");
+    setShift("");
     setSwapWith("");
     setRequestedDate("");
     setReason("");
@@ -66,7 +68,7 @@ const RequestSwapModal: React.FC<RequestSwapModalProps> = ({
           </button>
           <button
             onClick={handleSubmit}
-            className="px-6 py-2 bg-[#1a5276] text-white rounded-xl text-sm font-bold shadow-sm"
+            className="px-6 py-2 bg-[#1a5276] text-white rounded-xl text-sm font-bold shadow-sm hover:bg-[#154360] transition-colors"
           >
             Submit Request
           </button>
@@ -82,9 +84,9 @@ const RequestSwapModal: React.FC<RequestSwapModalProps> = ({
 
         <SelectField
           label="My Shift to Swap"
-          value={myShift}
+          value={shift}
           onChange={(v) => {
-            setMyShift(v);
+            setShift(v);
             setError("");
           }}
           options={shiftOptions}
@@ -112,7 +114,6 @@ const RequestSwapModal: React.FC<RequestSwapModalProps> = ({
             setError("");
           }}
           type="date"
-          placeholder="mm/dd/yyyy"
           required
         />
 

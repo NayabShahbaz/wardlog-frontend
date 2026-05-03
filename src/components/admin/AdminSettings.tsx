@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { HiOutlineCog6Tooth } from "react-icons/hi2";
 import { SectionCard, InputField, SelectField } from "../ui";
+import { apiFetch } from "../../utils/api"; // Added apiFetch utility
 
 const AdminSettings = () => {
   const [hospitalName, setHospitalName] = useState("WardLog General Hospital");
@@ -8,12 +9,58 @@ const AdminSettings = () => {
   const [sessionTimeout, setSessionTimeout] = useState("30");
   const [maxPatients, setMaxPatients] = useState("200");
   const [backupFreq, setBackupFreq] = useState("daily");
+  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  // ── Data Fetching (Member 2 Responsibility)  
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await apiFetch("/api/admin/settings"); // Target Member 2 API
+        const result = await res.json();
+        if (res.ok && result.success) {
+          const { data } = result;
+          setHospitalName(data.hospitalName || "");
+          setTimezone(data.timezone || "Asia/Karachi");
+          setSessionTimeout(data.sessionTimeout?.toString() || "30");
+          setMaxPatients(data.maxPatients?.toString() || "200");
+          setBackupFreq(data.backupFreq || "daily");
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  // ── Save Logic (Member 2 Responsibility) ──────────────────────
+  const handleSave = async () => {
+    try {
+      const payload = {
+        hospitalName,
+        timezone,
+        sessionTimeout: parseInt(sessionTimeout),
+        maxPatients: parseInt(maxPatients),
+        backupFreq,
+      };
+
+      const res = await apiFetch("/api/admin/settings", {
+        method: "PUT", // Member 2 implementation for updates
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+    }
   };
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading system settings...</div>;
 
   return (
     <div className="space-y-6">
@@ -29,12 +76,7 @@ const AdminSettings = () => {
 
       {saved && (
         <div
-          className="text-sm text-green-700 bg-green-50 px-4 py-2.5 rounded-lg"
-          style={{
-            borderWidth: "1px",
-            borderStyle: "solid",
-            borderColor: "#bbf7d0",
-          }}
+          className="text-sm text-green-700 bg-green-50 px-4 py-2.5 rounded-lg border border-green-200"
         >
           Settings saved successfully
         </div>
