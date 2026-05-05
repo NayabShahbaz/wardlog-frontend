@@ -126,6 +126,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           );
         }
       } catch (err) {
+        console.log("Error polling notifications:", err);
         console.error("Failed to fetch notifications:", err);
       }
     };

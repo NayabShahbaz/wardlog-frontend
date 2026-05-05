@@ -36,7 +36,7 @@ function App() {
             <Route path="patients" element={<PatientManagement />} />
             <Route path="patients/:mrn" element={<PatientDetail />} />
             <Route path="clinical-docs" element={<ClinicalDocumentation />} />
-            
+
             {/* Member 2 Ward Coordination Responsibility[cite: 11, 15] */}
             <Route path="ward-dashboard" element={<WardDash />} />
             <Route path="noticeboard" element={<Noticeboard />} />
@@ -56,19 +56,14 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
-          {/* Nurse Routes - Matching Clinical & Ward Access[cite: 15] */}
-          <Route
-            path="/nurse"
-            element={
-              <DoctorLayout userName="Nurse Jane Doe" userRole="Nurse" />
-            }
-          >
+          {/* Nurse Routes */}
+          <Route path="/nurse" element={<DoctorLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<NurseDashboard />} />
             <Route path="patients" element={<PatientManagement />} />
             <Route path="patients/:mrn" element={<PatientDetail />} />
             <Route path="clinical-docs" element={<ClinicalDocumentation />} />
-            
+
             {/* Member 2 Ward Coordination Access for Nurses[cite: 11, 15] */}
             <Route path="ward-dashboard" element={<WardDash />} />
             <Route path="noticeboard" element={<Noticeboard />} />

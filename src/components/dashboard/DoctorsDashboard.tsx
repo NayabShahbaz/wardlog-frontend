@@ -17,8 +17,6 @@ import {
 } from "../ui";
 import { apiFetch } from "../../utils/api";
 import { type UserContextType } from "../layout/DoctorLayout";
-// Ensure this path is 100% correct in your file structure
-import CreateLabOrderModal from "../clinical/CreateLabOrderModal"; 
 
 // ── Types ───────────────────────────────────────────────────────
 type PopulatedRef = string | { _id: string; name?: string } | null | undefined;
@@ -33,7 +31,6 @@ interface Task {
 }
 
 interface Patient {
-  _id: string; // Required for mapping to 'value'
   mrn: string;
   firstName: string;
   lastName: string;
@@ -51,7 +48,7 @@ interface ClinicalNote {
   title: string;
   patientName?: string;
   patientMrn?: string;
-  status: "Draft" | "Final";
+  status: "draft" | "final";
 }
 
 interface Notice {
@@ -78,9 +75,8 @@ const priorityVariant = (p: string) => {
 };
 
 const statusVariant = (s: string) => {
-  const lower = s.toLowerCase();
-  if (lower === "pending") return "outline" as const;
-  if (lower === "in-progress") return "dark" as const;
+  if (s === "pending") return "outline" as const;
+  if (s === "in-progress") return "dark" as const;
   return "green" as const;
 };
 
@@ -95,7 +91,6 @@ const DoctorDashboard = () => {
   const [notes, setNotes] = useState<ClinicalNote[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   // ── Fetching ──────────────────────────────────────────────────
   useEffect(() => {
@@ -134,7 +129,10 @@ const DoctorDashboard = () => {
             const assignedId = getRefId(t.assignedTo);
             return assignedId === userId;
           });
-          setTasks(myTasks.filter((t: Task) => t.status !== "completed").slice(0, 3));
+          const activeTasks = myTasks.filter(
+            (t: Task) => t.status !== "completed",
+          );
+          setTasks(activeTasks.slice(0, 3));
         }
 
         if (notesData.success && pData.success) {
@@ -162,98 +160,227 @@ const DoctorDashboard = () => {
     };
 
     fetchDashboardData();
-  }, [userId, isNurse]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
-  // ── Data Transformation ──
-  const patientOptionsForModal = patients.map((p) => ({
-    label: `${p.firstName} ${p.lastName} (${p.mrn})`, 
-    value: p._id, // Ensure this exists in the Patient interface[cite: 12]
-  }));
-
-  const handleSaveOrder = async (orderData: any) => {
-    try {
-      const res = await apiFetch("/api/clinical/lab-orders", {
-        method: "POST",
-        body: JSON.stringify(orderData),
-      });
-      if (res.ok) {
-        setIsOrderModalOpen(false);
-        alert("Lab order created successfully!");
-      }
-    } catch (err) {
-      console.error("Failed to save lab order:", err);
-    }
-  };
-
+  // ── Stat Cards ────────────────────────────────────────────────
   const basePath = isNurse ? "/nurse" : "/doctor";
 
+  const statCards = [
+    {
+      label: "My Patients",
+      value: String(patients.length),
+      sub: `${patients.filter((p) => p.status === "admitted").length} admitted`,
+      color: "bg-blue-100",
+      iconColor: "text-blue-600",
+      icon: HiOutlineUsers,
+    },
+    {
+      label: "My Tasks",
+      value: String(tasks.length),
+      sub: `${tasks.filter((t) => t.priority === "high").length} urgent`,
+      color: "bg-green-100",
+      iconColor: "text-green-600",
+      icon: HiOutlineCheckCircle,
+    },
+    {
+      label: "Clinical Notes",
+      value: String(notes.length),
+      sub: "Recent updates",
+      color: "bg-orange-100",
+      iconColor: "text-orange-600",
+      icon: HiOutlineClipboardDocument,
+    },
+    {
+      label: "Active Notices",
+      value: String(notices.length),
+      sub: "Hospital-wide",
+      color: "bg-red-100",
+      iconColor: "text-red-600",
+      icon: HiOutlineBell,
+    },
+  ];
+
   if (loading)
-    return <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>;
+    return (
+      <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>
+    );
 
   return (
     <>
       <WelcomeHeader
         name={userName}
         department="General Medicine"
-        date={new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-        time={new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        date={new Date().toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })}
+        time={new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
       />
 
-      <div className="mb-6 flex justify-between items-center">
-         <h2 className="text-lg font-semibold text-gray-700">Quick Actions</h2>
-         <button 
-           onClick={() => setIsOrderModalOpen(true)}
-           className="px-4 py-2 bg-[#1a5276] text-white rounded-xl text-sm font-bold shadow-md hover:bg-gray-800 transition-all"
-         >
-           + New Lab Order
-         </button>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {statCards.map((card) => (
+          <StatCard key={card.label} {...card} />
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="My Patients" value={String(patients.length)} sub="Active" color="bg-blue-100" iconColor="text-blue-600" icon={HiOutlineUsers} />
-        <StatCard label="My Tasks" value={String(tasks.length)} sub="Pending" color="bg-green-100" iconColor="text-green-600" icon={HiOutlineCheckCircle} />
-        <StatCard label="Notes" value={String(notes.length)} sub="Draft/Final" color="bg-orange-100" iconColor="text-orange-600" icon={HiOutlineClipboardDocument} />
-        <StatCard label="Notices" value={String(notices.length)} sub="Hospital" color="bg-red-100" iconColor="text-red-600" icon={HiOutlineBell} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Tasks Section */}
+        <div
+          className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
+          onClick={() => navigate(`${basePath}/tasks`)}
+        >
+          <SectionCard title="Priority Tasks" icon={HiOutlineCheckCircle}>
+            <div className="min-h-52.5">
+              {tasks.length > 0 ? (
+                <div className="space-y-3">
+                  {tasks.map((task) => (
+                    <ListRow key={task._id}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {task.title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          text={task.priority}
+                          variant={priorityVariant(task.priority)}
+                        />
+                        <Badge
+                          text={task.status}
+                          variant={statusVariant(task.status)}
+                        />
+                      </div>
+                    </ListRow>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState message="No pending tasks" />
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        </div>
+
+        {/* Noticeboard Section */}
+        <div
+          className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
+          onClick={() => navigate(`${basePath}/noticeboard`)}
+        >
+          <SectionCard title="Noticeboard" icon={HiOutlineBell}>
+            <div className="min-h-52.5">
+              {notices.length > 0 ? (
+                <div className="space-y-3">
+                  {notices.map((notice) => (
+                    <ListRow key={notice._id}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {notice.title}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {notice.category}
+                        </p>
+                      </div>
+                      <Badge
+                        text={notice.priority}
+                        variant={priorityVariant(notice.priority)}
+                      />
+                    </ListRow>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState message="No new notices" />
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Added div wrappers with onClick to fix SectionCard prop errors */}
-        <div onClick={() => navigate(`${basePath}/patients`)} className="cursor-pointer">
+        {/* Patients Section */}
+        <div
+          className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
+          onClick={() => navigate(`${basePath}/patients`)}
+        >
           <SectionCard title="My Patients" icon={HiOutlineUsers}>
-            {patients.length > 0 ? (
-              patients.slice(0, 3).map(p => (
-                <ListRow key={p.mrn}>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-gray-900">{p.firstName} {p.lastName}</p>
-                    <p className="text-xs text-gray-400">{p.mrn}</p>
-                  </div>
-                  <Badge text={p.diagnosis || "No Diagnosis"} variant="outline" />
-                </ListRow>
-              ))
-            ) : <EmptyState message="No patients assigned" />}
+            <div className="min-h-52.5">
+              {patients.length > 0 ? (
+                <div className="space-y-3">
+                  {patients.slice(0, 3).map((p) => (
+                    <ListRow key={p.mrn}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {p.firstName} {p.lastName}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {p.mrn}
+                          {p.ward && ` · ${p.ward} ${p.bedNumber ?? ""}`}
+                        </p>
+                      </div>
+                      <Badge text={p.diagnosis ?? "—"} variant="outline" />
+                    </ListRow>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState message="No patients assigned" />
+                </div>
+              )}
+            </div>
           </SectionCard>
         </div>
 
-        <div onClick={() => navigate(`${basePath}/tasks`)} className="cursor-pointer">
-          <SectionCard title="Priority Tasks" icon={HiOutlineCheckCircle}>
-            {tasks.length > 0 ? (
-              tasks.map(t => (
-                <ListRow key={t._id}>
-                  <p className="text-sm font-semibold text-gray-900">{t.title}</p>
-                  <Badge text={t.priority} variant={priorityVariant(t.priority)} />
-                </ListRow>
-              ))
-            ) : <EmptyState message="All clear!" />}
+        {/* Notes Section */}
+        <div
+          className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
+          onClick={() => navigate(`${basePath}/clinical-docs`)}
+        >
+          <SectionCard
+            title="Recent Clinical Notes"
+            icon={HiOutlineDocumentText}
+          >
+            <div className="min-h-52.5">
+              {notes.length > 0 ? (
+                <div className="space-y-3">
+                  {notes.map((note) => (
+                    <ListRow key={note._id}>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <HiOutlineDocumentText className="w-4 h-4 text-gray-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-600 truncate">
+                            {note.title}
+                          </p>
+                          {note.patientName && (
+                            <p className="text-xs text-gray-400 truncate">
+                              {note.patientName}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Badge
+                        text={note.status}
+                        variant={note.status === "final" ? "dark" : "outline"}
+                      />
+                    </ListRow>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <EmptyState message="No clinical documents" />
+                </div>
+              )}
+            </div>
           </SectionCard>
         </div>
       </div>
-
-      <CreateLabOrderModal
-        isOpen={isOrderModalOpen}
-        onClose={() => setIsOrderModalOpen(false)}
-        onSave={handleSaveOrder}
-        patients={patientOptionsForModal} 
-      />
     </>
   );
 };
