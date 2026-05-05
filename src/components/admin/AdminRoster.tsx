@@ -15,7 +15,9 @@ import { apiFetch } from "../../utils/api";
 // ── Types ───────────────────────────────────────────────────────────
 interface StaffShift {
   id: string;
+  _id?: string; 
   name: string;
+  staffName?: string; // For backward compatibility with older data
   role: string;
   ward: string;
 }
@@ -107,10 +109,18 @@ const AdminRoster = () => {
         }
       
         if (swapData.success && Array.isArray(swapData.data)) {
-          // FIX: Normalize MongoDB _id to frontend id[cite: 23]
           const normalizedSwaps = swapData.data.map((req: any) => ({
             ...req,
-            id: req._id || req.id
+            id: req._id || req.id,
+            
+            // 1. Unpack the populated objects into plain strings so React doesn't crash!
+            requester: req.requester?.name || "Unknown Staff",
+            requesterRole: req.requester?.role || "Staff",
+            swapWith: req.swapWith?.name || "Unknown Staff",
+            
+            // 2. Normalize the capital "Pending" from the database back to lowercase 
+            // so your frontend tabs, filters, and colored badges work correctly!
+            status: req.status ? req.status.toLowerCase() : "pending"
           }));
           setSwapRequests(normalizedSwaps);
         } else {
@@ -145,38 +155,63 @@ const AdminRoster = () => {
     { label: "Pending Approvals", count: pendingCount },
   ];
 
-  const handleAddShift = () => {
+ const handleAddShift = async () => {
     if (!addDay || !addShift || !addStaff) {
       setAddError("Please fill all fields.");
       return;
     }
-    const dayIdx = parseInt(addDay);
     const staffInfo = staffOptions.find((s) => s.value === addStaff);
     if (!staffInfo) return;
 
     const roleMatch = staffInfo.label.match(/\(([^)]+)\)/);
     const role = roleMatch ? roleMatch[1] : "Staff";
 
-    const newShift: StaffShift = {
-      id: `add-${Date.now()}`,
-      name: staffInfo.value,
-      role: role,
-      ward: addWard,
-    };
+    // Format the date for the backend
+    const [year, month, day] = addDay.split('-');
+    const isoDate = new Date(Number(year), Number(month) - 1, Number(day)).toISOString();
 
-    const updated = [...schedule];
-    const shiftKey = addShift.toLowerCase() === 'evening' ? 'afternoon' : addShift.toLowerCase() as "morning" | "afternoon" | "night";
-    
-    updated[dayIdx] = {
-      ...updated[dayIdx],
-      [shiftKey]: [...updated[dayIdx][shiftKey], newShift],
-    };
-    setSchedule(updated);
-    setAddShiftOpen(false);
-    setAddDay(""); setAddShift(""); setAddStaff(""); setAddWard("Ward A"); setAddError("");
+    try {
+      const res = await apiFetch("/api/roster/shifts", {
+        method: "POST",
+        body: JSON.stringify({
+          date: isoDate,
+          shiftData: {
+            shift: addShift, // Matches the backend enum (Morning/Evening/Night)
+            staffName: staffInfo.value,
+            role: role,
+            ward: addWard
+          }
+        })
+      });
+
+      if (res.ok) {
+        // If successful, instantly re-fetch the Roster to get the real MongoDB _ids!
+        const rosterRes = await apiFetch("/api/roster");
+        const rosterData = await rosterRes.json();
+        if (rosterData.success) {
+          const reshapedData = rosterData.data.map((day: any) => ({
+            date: new Date(day.date).toLocaleDateString(),
+            morning: day.shifts.filter((s: any) => s.shift === 'Morning'),
+            afternoon: day.shifts.filter((s: any) => s.shift === 'Evening'),
+            night: day.shifts.filter((s: any) => s.shift === 'Night')
+          }));
+          setSchedule(reshapedData);
+        }
+        
+        // Close modal and clean up
+        setAddShiftOpen(false);
+        setAddDay(""); setAddShift(""); setAddStaff(""); setAddWard("Ward A"); setAddError("");
+      } else {
+        const errData = await res.json();
+        setAddError(errData.message || "Failed to save shift to database");
+      }
+    } catch (err) {
+      setAddError("Server error occurred while adding shift.");
+    }
   };
 
-  const handleEditShift = () => {
+    
+const handleEditShift = async () => {
     if (!editTarget || !editStaff) {
       setEditError("Please select a staff member.");
       return;
@@ -187,32 +222,81 @@ const AdminRoster = () => {
     const roleMatch = staffInfo.label.match(/\(([^)]+)\)/);
     const role = roleMatch ? roleMatch[1] : "Staff";
 
-    const updated = [...schedule];
+    // Locate the exact shift document to grab its real MongoDB _id
     const shiftKey = editTarget.shift as "morning" | "afternoon" | "night";
-    const shiftArr = [...updated[editTarget.dayIdx][shiftKey]];
-    
-    shiftArr[editTarget.staffIdx] = {
-      ...shiftArr[editTarget.staffIdx],
-      name: staffInfo.value,
-      role: role,
-      ward: editWard || shiftArr[editTarget.staffIdx].ward,
-    };
-    
-    updated[editTarget.dayIdx] = { ...updated[editTarget.dayIdx], [shiftKey]: shiftArr };
-    setSchedule(updated);
-    setEditShiftOpen(false);
-    setEditTarget(null); setEditStaff(""); setEditWard(""); setEditError("");
+    const shiftToEdit = schedule[editTarget.dayIdx][shiftKey][editTarget.staffIdx];
+    const shiftId = shiftToEdit._id || shiftToEdit.id;
+
+    // Convert frontend key ("afternoon") back to backend Enum ("Evening")
+    const backendShiftType = shiftKey === "afternoon" ? "Evening" : shiftKey.charAt(0).toUpperCase() + shiftKey.slice(1);
+
+    try {
+      const res = await apiFetch(`/api/roster/shifts/${shiftId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          shift: backendShiftType,
+          staffName: staffInfo.value,
+          role: role,
+          ward: editWard || shiftToEdit.ward
+        })
+      });
+
+      if (res.ok) {
+        // Re-fetch to apply changes
+        const rosterRes = await apiFetch("/api/roster");
+        const rosterData = await rosterRes.json();
+        if (rosterData.success) {
+          const reshapedData = rosterData.data.map((day: any) => ({
+            date: new Date(day.date).toLocaleDateString(),
+            morning: day.shifts.filter((s: any) => s.shift === 'Morning'),
+            afternoon: day.shifts.filter((s: any) => s.shift === 'Evening'),
+            night: day.shifts.filter((s: any) => s.shift === 'Night')
+          }));
+          setSchedule(reshapedData);
+        }
+        setEditShiftOpen(false);
+        setEditTarget(null); setEditStaff(""); setEditWard(""); setEditError("");
+      } else {
+         const errData = await res.json();
+         setEditError(errData.message || "Failed to update shift.");
+      }
+    } catch (err) {
+       setEditError("Server error occurred while editing shift.");
+    }
   };
 
-  const handleDeleteShift = () => {
+  const handleDeleteShift = async () => {
     if (!deleteConfirm) return;
-    const updated = [...schedule];
+
     const shiftKey = deleteConfirm.shift as "morning" | "afternoon" | "night";
-    const shiftArr = [...updated[deleteConfirm.dayIdx][shiftKey]];
-    shiftArr.splice(deleteConfirm.staffIdx, 1);
-    updated[deleteConfirm.dayIdx] = { ...updated[deleteConfirm.dayIdx], [shiftKey]: shiftArr };
-    setSchedule(updated);
-    setDeleteConfirm(null);
+    const shiftToDelete = schedule[deleteConfirm.dayIdx][shiftKey][deleteConfirm.staffIdx];
+    const shiftId = shiftToDelete._id || shiftToDelete.id;
+
+    try {
+      const res = await apiFetch(`/api/roster/shifts/${shiftId}`, {
+        method: "DELETE"
+      });
+
+      if (res.ok) {
+        // Re-fetch to pull the updated schedule
+        const rosterRes = await apiFetch("/api/roster");
+        const rosterData = await rosterRes.json();
+        if (rosterData.success) {
+          const reshapedData = rosterData.data.map((day: any) => ({
+            date: new Date(day.date).toLocaleDateString(),
+            morning: day.shifts.filter((s: any) => s.shift === 'Morning'),
+            afternoon: day.shifts.filter((s: any) => s.shift === 'Evening'),
+            night: day.shifts.filter((s: any) => s.shift === 'Night')
+          }));
+          setSchedule(reshapedData);
+        }
+        setDeleteConfirm(null);
+      } else {
+        console.error("Backend refused to delete the shift.");
+      }
+    } catch (err) {
+      console.error("Network error while trying to delete shift:", err);
+    }
   };
 
   const handleGenerate = async () => {
@@ -265,36 +349,57 @@ const AdminRoster = () => {
   };
 
   const renderShiftColumn = (label: string, staff: StaffShift[] = [], dayIdx: number, shiftKey: string) => (
-    <div className="bg-white rounded-xl p-4 flex-1 min-w-0 border border-gray-200">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h4 className="text-sm font-bold text-gray-900">{label}</h4>
-          <span className="text-xs font-medium text-gray-500 px-2 py-0.5 rounded-md bg-gray-100">{staff?.length || 0}</span>
-        </div>
+    <div
+      className="bg-white rounded-xl p-4 flex-1 min-w-0"
+      style={{
+        borderWidth: "1px",
+        borderStyle: "solid",
+        borderColor: "#e5e7eb",
+      }}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <h4 className="text-sm font-bold text-gray-900">{label}</h4>
+        <span className="text-xs font-medium text-gray-500 px-2 py-0.5 rounded-md bg-gray-100">
+          {staff.length}
+        </span>
       </div>
+
       <div className="space-y-2">
-        {Array.isArray(staff) && staff.map((s, idx) => (
-          <div key={s.id || idx} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+        {staff.length > 0 ? staff.map((s, idx) => (
+          <div
+            key={s._id || s.id || idx} 
+            className="group py-2 flex items-center justify-between last:border-0"
+            style={{
+              borderBottomWidth: "1px",
+              borderBottomStyle: "solid",
+              borderBottomColor: "#f3f4f6",
+            }}
+          >
             <div>
-              <p className="text-sm font-semibold text-gray-900">{s.name}</p>
-              <p className="text-xs text-gray-500">{s.role} • {s.ward}</p>
+              <p className="text-sm font-semibold text-gray-900">{s.staffName ||s.name}</p>
+              <p className="text-xs text-gray-500">
+                {s.role} • {s.ward}
+              </p>
             </div>
-            <div className="flex items-center gap-1">
+            {/* Admin actions (Edit/Delete) visible on hover */}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button 
                 onClick={() => { setEditTarget({ dayIdx, shift: shiftKey, staffIdx: idx }); setEditStaff(s.name); setEditWard(s.ward); setEditShiftOpen(true); }}
-                className="p-1 text-gray-400 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded"
+                className="p-1.5 text-gray-400 hover:text-[#1a5276] hover:bg-[#e8f0f6] rounded-md transition-colors"
               >
-                <HiOutlinePencilSquare className="w-3.5 h-3.5" />
+                <HiOutlinePencilSquare className="w-4 h-4" />
               </button>
               <button 
                 onClick={() => setDeleteConfirm({ dayIdx, shift: shiftKey, staffIdx: idx })}
-                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
               >
-                <HiOutlineTrash className="w-3.5 h-3.5" />
+                <HiOutlineTrash className="w-4 h-4" />
               </button>
             </div>
           </div>
-        ))}
+        )) : (
+          <p className="text-sm text-gray-400 italic">No staff scheduled</p>
+        )}
       </div>
     </div>
   );
@@ -319,10 +424,19 @@ const AdminRoster = () => {
 
       <Tabs tabs={tabs} activeIndex={activeTab} onChange={setActiveTab} />
 
+      
       {activeTab === 0 && (
         <div className="space-y-4">
           {schedule.map((day, dayIdx) => (
-            <div key={day.date} className="bg-white rounded-xl p-5 border border-gray-200">
+            <div
+              key={day.date}
+              className="bg-white rounded-xl p-5"
+              style={{
+                borderWidth: "1px",
+                borderStyle: "solid",
+                borderColor: "#e5e7eb",
+              }}
+            >
               <h3 className="text-base font-bold text-gray-900 mb-4">{day.date}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {renderShiftColumn("Morning", day.morning, dayIdx, "morning")}
@@ -331,7 +445,12 @@ const AdminRoster = () => {
               </div>
             </div>
           ))}
-          {schedule.length === 0 && <div className="text-center py-12 text-gray-400">No schedule generated.</div>}
+          
+          {schedule.length === 0 && (
+            <div className="text-center py-12 text-sm text-gray-400">
+              No schedule available
+            </div>
+          )}
         </div>
       )}
 
@@ -364,7 +483,7 @@ const AdminRoster = () => {
       <Modal title="Add Shift" isOpen={addShiftOpen} onClose={() => setAddShiftOpen(false)} footer={<><button onClick={() => setAddShiftOpen(false)} className="px-5 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg">Cancel</button><button onClick={handleAddShift} className="px-5 py-2 text-sm text-white bg-[#1a5276] rounded-lg">Add Shift</button></>}>
         <div className="space-y-4">
           {addError && <div className="text-sm text-red-600 bg-red-50 p-2 rounded">{addError}</div>}
-          <SelectField label="Day" value={addDay} onChange={setAddDay} options={dayOptions} placeholder="Select day" required />
+          <InputField label="Day" type="date" value={addDay} onChange={setAddDay} required />
           <SelectField label="Shift" value={addShift} onChange={setAddShift} options={shiftOptions} placeholder="Select shift" required />
           <SelectField label="Staff Member" value={addStaff} onChange={setAddStaff} options={staffOptions} placeholder="Select staff" required />
           <SelectField label="Ward" value={addWard} onChange={setAddWard} options={wardOptions} />

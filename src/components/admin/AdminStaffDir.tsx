@@ -115,7 +115,7 @@ const AdminStaffDirectory = () => {
         method: "POST",
         body: JSON.stringify({
           ...formData,
-          status: "active"
+          status: "Active"
         }),
       });
       const result = await res.json();

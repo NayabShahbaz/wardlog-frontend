@@ -22,12 +22,13 @@ const RosterManagement = () => {
   const [loading, setLoading] = useState(true);
 
   // ── Data Fetching (Member 2 Responsibility) ──────────────────
+ // ── Data Fetching (Member 2 Responsibility) ──────────────────
   const fetchRosterData = async () => {
     try {
       setLoading(true);
       const [rosterRes, swapRes, staffRes] = await Promise.all([
         apiFetch("/api/roster"),
-        apiFetch("/api/roster/swap-requests"),
+        apiFetch("/api/swap-requests"), // <--- 1. Fixed the URL here!
         apiFetch("/api/staff")
       ]);
 
@@ -35,8 +36,66 @@ const RosterManagement = () => {
       const swapData = await swapRes.json();
       const staffData = await staffRes.json();
 
-      if (rosterData.success) setSchedule(rosterData.data);
-      if (swapData.success) setSwapRequests(swapData.data);
+      if (rosterData.success) {
+        // 2. Reshape the data so DaySchedule and My Shifts can read it!
+        const reshapedData = rosterData.data.map((day: any) => ({
+          date: new Date(day.date).toLocaleDateString(),
+          morning: day.shifts.filter((s: any) => s.shift === 'Morning'),
+          afternoon: day.shifts.filter((s: any) => s.shift === 'Evening'), // Maps Backend 'Evening' to Frontend 'afternoon'
+          night: day.shifts.filter((s: any) => s.shift === 'Night')
+        }));
+        setSchedule(reshapedData);
+      }
+
+// ── THE FIX: Safely unpack objects before React renders them ──
+     
+      if (swapData.success) {
+        const safeSwaps = swapData.data.map((req: any) => {
+          const cleanDate = req.requestedDate
+            ? new Date(req.requestedDate).toLocaleDateString()
+            : "N/A";
+
+          // 2. Cross-reference the database ID with our downloaded roster data
+          let cleanShift = req.shift;
+          
+          if (typeof req.shift === "object") {
+            cleanShift = req.shift?.shift || "Unknown Shift";
+          } else if (typeof req.shift === "string") {
+            // If it's exactly 24 characters (a MongoDB ID from the seed script)
+            if (req.shift.length === 24 && !req.shift.includes(" ")) {
+              
+              // Search through the raw rosterData we fetched a few lines above
+              let matchedShiftStr = null;
+              for (const day of rosterData.data) {
+                const matchedShift = day.shifts.find((s: any) => s._id === req.shift);
+                
+                if (matchedShift) {
+                  const niceDate = new Date(day.date).toLocaleDateString();
+                  // Combine them to look exactly like the UI strings!
+                  matchedShiftStr = `${niceDate} - ${matchedShift.shift}`;
+                  break;
+                }
+              }
+              cleanShift = matchedShiftStr || "Unknown Seeded Shift";
+              
+            } 
+            // If it came from the frontend UI (e.g., "3/12/2026|Morning")
+            else if (req.shift.includes("|")) {
+              cleanShift = req.shift.replace("|", " - ");
+            }
+          }
+
+          return {
+            ...req,
+            id: req._id || req.id,
+            swapWith: typeof req.swapWith === "object" ? req.swapWith?.name : req.swapWith,
+            shift: cleanShift,
+            requestedDate: cleanDate, 
+            status: req.status ? req.status.toLowerCase() : "pending",
+          };
+        });
+        setSwapRequests(safeSwaps);
+      }
       if (staffData.success) {
         setStaffOptions(staffData.data.map((s: any) => ({
           label: `${s.name} (${s.role})`,
@@ -49,7 +108,6 @@ const RosterManagement = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchRosterData();
   }, []);

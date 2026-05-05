@@ -4,6 +4,7 @@ import React from "react";
 export interface StaffShift {
   _id: string; // Updated from 'id' to '_id' for MongoDB compatibility[cite: 15]
   name: string;
+  staffName?: string; // For backward compatibility with older data       
   role: string;
   ward: string;
 }
@@ -42,7 +43,7 @@ const ShiftCard: React.FC<ShiftCardProps> = ({ label, staff }) => {
                 borderBottomColor: "#f3f4f6",
               }}
             >
-              <p className="text-sm font-semibold text-gray-900">{s.name}</p>
+              <p className="text-sm font-semibold text-gray-900">{s.staffName || s.name}</p>
               <p className="text-xs text-gray-500">
                 {s.role} • {s.ward}
               </p>

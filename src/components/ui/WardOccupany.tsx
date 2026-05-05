@@ -18,6 +18,9 @@ interface Ward {
   totalBeds: number;
   beds: Bed[];
 }
+interface WardOccupancyProps {
+  patients?: any[];
+}
 
 const statusConfig: Record<
   BedStatus,
@@ -114,31 +117,9 @@ const BedCell = ({ bed, onClick }: { bed: Bed; onClick?: () => void }) => {
   );
 };
 
-const WardOccupancy = () => {
+const WardOccupancy = ({ patients = [] }: WardOccupancyProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [wards, setWards] = useState<Ward[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // ── Member 2: Fetch Ward Occupancy (Ward Coordination) ──[cite: 11, 15]
-  const fetchWardData = async () => {
-    try {
-      setLoading(true);
-      const res = await apiFetch("/api/wards/occupancy");
-      const result = await res.json();
-      if (res.ok && result.success) {
-        setWards(result.data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch ward occupancy:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchWardData();
-  }, []);
 
   const basePath = location.pathname.startsWith("/nurse")
     ? "/nurse"
@@ -152,7 +133,47 @@ const WardOccupancy = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading bed map...</div>;
+  // Dynamically generate the wards based on the patients prop
+  const WARD_NAMES = ["Ward A", "Ward B", "Ward C"];
+  const BEDS_PER_WARD = 10;
+
+  const wards: Ward[] = WARD_NAMES.map((wardName) => {
+    // Find patients assigned to this specific ward
+    const wardPatients = patients.filter((p) => p.ward === wardName);
+
+    // Generate 10 beds for the ward
+    const beds: Bed[] = Array.from({ length: BEDS_PER_WARD }, (_, i) => {
+      const bedNum = i + 1;
+      
+      const bedSuffix = bedNum < 10 ? `0${bedNum}` : `${bedNum}`;
+
+      // Look for a patient whose bed number matches (e.g., "A-101" ends with "1")
+      const patientInBed = wardPatients.find(
+        (p) => p.bedNumber && p.bedNumber.trim().endsWith(bedSuffix)
+      );
+
+      if (patientInBed) {
+        return {
+          number: bedNum,
+          status: patientInBed.condition?.toLowerCase() as BedStatus || "stable", // Default status for admitted patients
+          patientName: `${patientInBed.firstName} ${patientInBed.lastName}`,
+          mrn: patientInBed.mrn,
+        };
+      }
+
+      return {
+        number: bedNum,
+        status: "empty",
+      };
+    });
+
+    return {
+      _id: wardName,
+      name: wardName,
+      totalBeds: BEDS_PER_WARD,
+      beds,
+    };
+  });
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
@@ -202,7 +223,7 @@ const WardOccupancy = () => {
             </div>
           );
         })}
-        {wards.length === 0 && !loading && (
+        {wards.length === 0 && (
           <div className="text-center py-12 text-sm text-gray-400">
             No ward data available
           </div>

@@ -83,7 +83,7 @@ const AdminDashboard = () => {
         // Correctly define all 5 response variables here
         const [staffRes, swapRes, noticeRes, patientRes, statsRes] = await Promise.all([
           apiFetch("/api/staff"),
-          apiFetch("/api/roster/swap-requests"),
+          apiFetch("/api/swap-requests"),
           apiFetch("/api/notices"),
           apiFetch("/api/patients"),
           apiFetch("/api/admin/dashboard") // Member 2's endpoint
@@ -100,7 +100,17 @@ const AdminDashboard = () => {
         ]);
 
         if (staffData.success) setStaff(staffData.data);
-        if (swapData.success) setSwapRequests(swapData.data);
+        if (swapData.success) {
+          const normalizedSwaps = swapData.data.map((req: any) => ({
+            ...req,
+            // 1. Force the database's capital "Pending" to lowercase so the filters work
+            status: req.status ? req.status.toLowerCase() : "pending",
+    
+            // 2. Safely extract the role from the populated User object
+            requesterRole: req.requester?.role || "Staff" 
+          }));
+          setSwapRequests(normalizedSwaps);
+        }
         if (noticeData.success) setNotices(noticeData.data);
         if (patientData.success) setPatients(patientData.data);
         // Map the backend data to your stats state

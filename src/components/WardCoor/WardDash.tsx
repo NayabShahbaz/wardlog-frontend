@@ -24,6 +24,7 @@ const WardDashboard = () => {
     activeStaff: 0,
     department: "General Medicine"
   });
+  const [patients, setPatients] = useState<any[]>([]);
   const [notices, setNotices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,14 +34,17 @@ const WardDashboard = () => {
       try {
         setLoading(true);
         const [statsRes, noticeRes] = await Promise.all([
-          apiFetch("/api/ward/dashboard-stats"), // Member 2 Stat endpoint[cite: 12]
-          apiFetch("/api/notices") // Member 2 Noticeboard endpoint[cite: 13]
+          apiFetch("/api/ward/dashboard"), // <--- Fixed the URL
+          apiFetch("/api/notices") 
         ]);
 
         const statsData = await statsRes.json();
         const noticeData = await noticeRes.json();
 
-        if (statsData.success) setStats(statsData.data);
+        if (statsData.success) {
+          setStats(statsData.data.stats);       // <--- Drill into stats
+          setPatients(statsData.data.patients); // <--- Save the patients
+        }
         if (noticeData.success) setNotices(noticeData.data.slice(0, 2));
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -110,7 +114,7 @@ const WardDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Ward Occupancy Map (Member 2 Responsibility)[cite: 11, 15] */}
         <div className="lg:col-span-2">
-          <WardOccupancy />
+          <WardOccupancy patients={patients} />
         </div>
 
         {/* Right Column - Sidebar */}
