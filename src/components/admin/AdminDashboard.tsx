@@ -278,7 +278,7 @@ const statCards = [
         {/* Staff Overview */}
         <div
           className="cursor-pointer hover:shadow-md transition-shadow rounded-xl"
-          onClick={() => navigate("/admin/directory")}
+          onClick={() => navigate("/admin/staff-directory")}
         >
           <SectionCard
             title="Staff Directory"
@@ -329,7 +329,7 @@ const statCards = [
               <HiOutlineUsers className="w-5 h-5" /> Manage Patients
             </button>
            <button
-              onClick={() => navigate("/admin/staff")} 
+              onClick={() => navigate("/admin/staff-directory")} 
               className="w-full flex items-center justify-center gap-2 py-3 bg-[#22c55e] text-white rounded-xl text-sm font-bold hover:bg-[#16a34a] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineUserGroup className="w-5 h-5" /> Staff Directory
