@@ -634,12 +634,20 @@ const AdminPatients = () => {
       const res = await apiFetch(`/api/patients/${mrn}`, {
         method: "DELETE",
       });
+      
       if (res.ok) {
         await fetchPatients();
-        setDeleteConfirm(null);
+        setDeleteConfirm(null); // Closes modal on success
+      } else {
+        // PREVENTS SILENT FAILURE: Reads the backend error and alerts you
+        const errorData = await res.json();
+        alert(`Failed to delete: ${errorData.message || "Backend rejected the request"}`);
+        setDeleteConfirm(null); // Forces modal to close so you aren't stuck
       }
     } catch (err) {
       console.error("Failed to delete patient:", err);
+      alert("Network error: Could not reach the server.");
+      setDeleteConfirm(null);
     }
   };
 
