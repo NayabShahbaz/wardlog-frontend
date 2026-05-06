@@ -4,10 +4,13 @@ interface SelectFieldProps {
   label: string;
   value: string;
   onChange: (val: string) => void;
-  options: { label: string; value: string }[];
+  // Updated: individual options can now be disabled
+  options: { label: string; value: string; disabled?: boolean }[]; 
   placeholder?: string;
   required?: boolean;
-  error?: string | null; // Added for Member 2 backend validation[cite: 27]
+  error?: string | null;
+  // Added: disabled prop for the entire select field
+  disabled?: boolean; 
 }
 
 const SelectField: React.FC<SelectFieldProps> = ({
@@ -18,6 +21,7 @@ const SelectField: React.FC<SelectFieldProps> = ({
   placeholder = "Select...",
   required = false,
   error = null,
+  disabled = false, // Added: default value for disabled
 }) => {
   return (
     <div className="w-full">
@@ -28,26 +32,34 @@ const SelectField: React.FC<SelectFieldProps> = ({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        // Added: disabled attribute applied to the HTML select element
+        disabled={disabled} 
         style={{
           borderWidth: "1px",
           borderStyle: "solid",
-          borderColor: error ? "#dc2626" : "#d1d5db", // Red border on error[cite: 27]
+          borderColor: error ? "#dc2626" : "#d1d5db",
         }}
         className={`w-full px-3 py-2.5 rounded-lg text-sm text-gray-700
                    focus:outline-none focus:ring-2 focus:ring-[#1a5276]
                    appearance-none bg-gray-50 focus:bg-white transition-all ${
                      error ? "ring-1 ring-red-500" : ""
+                   } ${
+                     disabled ? "opacity-50 cursor-not-allowed bg-gray-100" : "" // Added: visual feedback for disabled state
                    }`}
       >
         <option value="">{placeholder}</option>
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <option 
+            key={opt.value} 
+            value={opt.value} 
+            // Added: individual options can now be disabled (e.g., for occupied beds)
+            disabled={opt.disabled}
+          >
             {opt.label}
           </option>
         ))}
       </select>
       
-      {/* Error message display[cite: 27] */}
       {error && (
         <p className="mt-1 text-xs text-red-600 font-medium">
           {error}

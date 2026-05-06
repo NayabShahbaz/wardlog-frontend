@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { type UserContextType } from "../layout/DoctorLayout";
 
@@ -10,55 +10,19 @@ import {
   HiOutlineClipboard,
 } from "react-icons/hi2";
 import TaskCard, { type Task } from "./TaskCard";
+import { apiFetch } from "../../utils/api"; 
 
 type TaskPriority = "high" | "medium" | "low";
 
-const INITIAL_TASKS: Task[] = [
-  {
-    id: "1",
-    title: "Administer morning medications",
-    description: "Administer scheduled morning medications to Ward A patients",
-    assignedTo: "Nurse Jane Doe",
-    type: "Medication",
-    priority: "high",
-    status: "completed",
-  },
-  {
-    id: "2",
-    title: "Review lab results for Patient 1",
-    description: "Check CBC and CMP results from morning blood draw",
-    assignedTo: "Dr. Sarah Johnson",
-    type: "Clinical",
-    priority: "high",
-    status: "pending",
-  },
-  {
-    id: "3",
-    title: "Update discharge summary",
-    description: "Complete discharge documentation for MRN001236",
-    assignedTo: "Dr. Sarah Johnson",
-    type: "Administrative",
-    priority: "medium",
-    status: "pending",
-  },
-  {
-    id: "4",
-    title: "Administer evening medications",
-    description: "Administer scheduled evening medications to Ward B patients",
-    assignedTo: "Nurse Jane Doe",
-    type: "Medication",
-    priority: "medium",
-    status: "pending",
-  },
-];
-
 export default function TaskPage() {
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [tasks, setTasks] = useState<any[]>([]); 
+  const [staffOptions, setStaffOptions] = useState<{ label: string; value: string }[]>([]);
+  
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
   const { userName, userRole } = useOutletContext<UserContextType>();
   const isNurse = userRole === "Nurse";
 
@@ -76,7 +40,46 @@ export default function TaskPage() {
     department: isNurse ? "Nursing" : "General Medicine",
   };
 
-  // ── Logic ──────────────────────────────────────────────────────
+  const fetchTasks = async () => {
+    try {
+      const res = await apiFetch("/api/tasks");
+      const result = await res.json();
+      if (result.success) {
+        const formattedTasks = result.data.map((t: any) => ({
+          ...t,
+          id: t._id,
+          // DEFENSIVE FIX: Forces status to lowercase in case backend sends "Completed"
+          status: t.status ? t.status.toLowerCase() : "pending", 
+          assignedTo: t.assignedTo?.name || t.assignedTo,
+          _rawAssignedToId: t.assignedTo?._id || t.assignedTo,
+        }));
+        setTasks(formattedTasks);
+      }
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
+    }
+  };
+
+  const fetchStaff = async () => {
+    try {
+      const res = await apiFetch("/api/staff");
+      const result = await res.json();
+      if (result.success) {
+        setStaffOptions(result.data.map((s: any) => ({
+          label: `${s.name} (${s.role})`,
+          value: s._id
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to fetch staff:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+    if (!isNurse) fetchStaff(); 
+  }, [isNurse]);
+
   const myNurseTasks = tasks.filter((t) => t.assignedTo === userName);
   const todoNurseTasks = myNurseTasks.filter((t) => t.status !== "completed");
 
@@ -110,88 +113,89 @@ export default function TaskPage() {
 
   const filtered = getFilteredTasks();
 
-  // ── Handlers ───────────────────────────────────────────────────
-  const handleCompleteTask = (taskId: string) => {
-    setTasks(
-      tasks.map((t) => (t.id === taskId ? { ...t, status: "completed" } : t)),
-    );
-  };
-
-  const handleDeleteTask = () => {
-    if (deleteConfirm) {
-      setTasks((prev) => prev.filter((t) => t.id !== deleteConfirm));
-      setDeleteConfirm(null);
+  // ── FIX: Complete Task with Alerts ──
+  const handleCompleteTask = async (taskId: string) => {
+    try {
+      const res = await apiFetch(`/api/tasks/${taskId}/complete`, { method: "PUT" });
+      if (res.ok) {
+        await fetchTasks();
+      } else {
+        // If the button "isn't working", this alert will now tell you why the backend rejected it
+        const data = await res.json();
+        alert(`Failed to complete task: ${data.message || "Backend Error"}`);
+      }
+    } catch (err) {
+      console.error("Error completing task:", err);
+      alert("Network error. Server could not be reached.");
     }
   };
 
-  const handleEditTask = (task: Task) => {
+  const handleDeleteTask = async () => {
+    if (deleteConfirm) {
+      try {
+        const res = await apiFetch(`/api/tasks/${deleteConfirm}`, { method: "DELETE" });
+        if (res.ok) {
+          await fetchTasks();
+          setDeleteConfirm(null);
+        }
+      } catch (err) {
+        console.error("Error deleting task:", err);
+      }
+    }
+  };
+
+  const handleEditTask = (task: any) => {
     setEditingTask(task);
     setFormData({
       title: task.title,
-      assignedTo: task.assignedTo,
+      assignedTo: task._rawAssignedToId || task.assignedTo,
       type: task.type,
       priority: task.priority,
-      content: task.description,
+      content: task.description, 
     });
     setIsModalOpen(true);
   };
 
-  const handleCreateTask = () => {
-    if (
-      !formData.title.trim() ||
-      !formData.content.trim() ||
-      !formData.assignedTo ||
-      !formData.type
-    ) {
+  const handleCreateTask = async () => {
+    if (!formData.title.trim() || !formData.content.trim() || !formData.assignedTo || !formData.type) {
       setError("Please fill in all required fields marked with *");
       return;
     }
 
-    if (editingTask) {
-      setTasks(
-        tasks.map((t) =>
-          t.id === editingTask.id
-            ? {
-                ...t,
-                title: formData.title,
-                description: formData.content,
-                assignedTo: formData.assignedTo,
-                type: formData.type,
-                priority: formData.priority,
-              }
-            : t,
-        ),
-      );
-    } else {
-      const newTask: Task = {
-        id: `task-${Date.now()}`,
-        title: formData.title,
-        description: formData.content,
-        assignedTo: formData.assignedTo,
-        type: formData.type,
-        priority: formData.priority,
-        status: "pending",
-      };
-      setTasks([newTask, ...tasks]);
-    }
+    try {
+      const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
+      const method = editingTask ? "PUT" : "POST";
+      
+      const res = await apiFetch(url, {
+        method: method,
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.content, 
+          assignedTo: formData.assignedTo,
+          type: formData.type,
+          priority: formData.priority,
+        }),
+      });
 
-    setIsModalOpen(false);
-    setEditingTask(null);
-    setError(null);
-    setFormData({
-      title: "",
-      assignedTo: "",
-      type: "",
-      priority: "medium",
-      content: "",
-    });
+      if (res.ok) {
+        await fetchTasks();
+        setIsModalOpen(false);
+        setEditingTask(null);
+        setError(null);
+        setFormData({ title: "", assignedTo: "", type: "", priority: "medium", content: "" });
+      } else {
+        const result = await res.json();
+        setError(result.message || "Failed to save task.");
+      }
+    } catch (err) {
+      setError("Server error while saving task.");
+    }
   };
 
   const statSource = isNurse ? myNurseTasks : tasks;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-0">
-      {/* ── Header Section ────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900">Task Management</h1>
@@ -199,13 +203,16 @@ export default function TaskPage() {
             <span className="text-gray-500">
               Create, assign and track tasks
             </span>
-    
           </div>
         </div>
 
         {!isNurse && (
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setEditingTask(null);
+              setFormData({ title: "", assignedTo: "", type: "", priority: "medium", content: "" });
+              setIsModalOpen(true);
+            }}
             className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1a5276] text-white rounded-lg text-sm font-semibold hover:bg-[#154360] active:scale-[0.98] transition-all shadow-sm w-full sm:w-auto"
           >
             <HiOutlinePlus className="w-5 h-5" />
@@ -214,7 +221,6 @@ export default function TaskPage() {
         )}
       </div>
 
-      {/* ── Stat Cards ────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           label="Pending"
@@ -244,7 +250,6 @@ export default function TaskPage() {
         </div>
       </div>
 
-      {/* ── Tabs ──────────────────────────────────────────────────── */}
       <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <Tabs
           tabs={taskTabs}
@@ -253,26 +258,25 @@ export default function TaskPage() {
         />
       </div>
 
-      {/* ── Task List ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4">
+     <div className="grid grid-cols-1 gap-4">
         {filtered.length > 0 ? (
           filtered.map((task) => {
-            const isAllTasksTab = !isNurse && activeTabIndex === 2;
+            const isOwn = task.assignedTo === currentUser.name;
+            
+            // THE FIX:
+            // 1. If user is a Nurse, they can NEVER manage (edit/delete).
+            // 2. If user is a Doctor, they can manage EXCEPT on the "All Tasks" tab (index 2).
+            const manage = !isNurse && !isOwn; 
+
             return (
               <TaskCard
                 key={task.id}
                 task={task}
-                isOwnTask={
-                  !isAllTasksTab && task.assignedTo === currentUser.name
-                }
+                isOwnTask={isOwn}
+                canManage={manage}
                 onComplete={handleCompleteTask}
                 onDelete={() => setDeleteConfirm(task.id)}
                 onEdit={() => handleEditTask(task)}
-                canManage={
-                  !isAllTasksTab &&
-                  !isNurse &&
-                  task.assignedTo !== currentUser.name
-                }
               />
             );
           })
@@ -284,7 +288,6 @@ export default function TaskPage() {
         )}
       </div>
 
-      {/* ── Modals ────────────────────────────────────────────────── */}
       {!isNurse && (
         <Modal
           isOpen={isModalOpen}
@@ -335,14 +338,7 @@ export default function TaskPage() {
                 setError(null);
               }}
               required
-              options={[
-                { label: "Emily Chen (Nurse)", value: "Emily Chen" },
-                { label: "James Wilson (Staff)", value: "James Wilson" },
-                {
-                  label: "Dr. Sarah Johnson (Doctor)",
-                  value: "Dr. Sarah Johnson",
-                },
-              ]}
+              options={staffOptions} 
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <SelectField
@@ -390,7 +386,6 @@ export default function TaskPage() {
         </Modal>
       )}
 
-      {/* Delete Confirmation */}
       <Modal
         title="Delete Task"
         isOpen={!!deleteConfirm}
