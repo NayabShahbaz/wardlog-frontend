@@ -59,11 +59,15 @@ const ClinicalDocumentation = () => {
             mrn: string;
             firstName: string;
             lastName: string;
+            status?: string;
           }) => {
+            if (p.status === "discharged" || p.status === "completed")
+              return false;
+
             if (userRole === "Admin") return true;
 
             if (userRole === "Nurse") {
-              // Note: If you bring 'supervisingDoctor' into the UI context later,
+              // If you bring 'supervisingDoctor' into the UI context later,
               // you can also check if p.assignedDoctor matches the nurse's supervising doctor here!
               return (
                 p.assignedNurse === userName ||

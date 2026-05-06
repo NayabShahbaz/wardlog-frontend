@@ -444,26 +444,40 @@ const AdminPatients = () => {
 
   const fetchDoctors = async () => {
     try {
-      // Hit the endpoint that triggers the controller function above
-      const res = await apiFetch("/api/staff");
-      const result = await res.json();
+      // Fetch BOTH Users (for the ID) and Staff (for the UI details) at the same time
+      const [usersRes, staffRes] = await Promise.all([
+        apiFetch("/api/users"),
+        apiFetch("/api/staff"),
+      ]);
 
-     if (res.ok && result.success) {
-     // Filter for Doctors only and map to the format expected by the dropdown
-     const docs = result.data
-      .filter((member: any) => member.role === "Doctor") // Filter logic
-      .map((u: any) => ({
-      _id: u._id,
-      name: u.name || "Unknown Doctor",
-      role: u.role,
-      specialty: u.specialty || "General", // Member 2 schema field[cite: 30]
-      department: u.department || "Medicine" // Member 2 schema field[cite: 30]
-    }));
+      const usersResult = await usersRes.json();
+      const staffResult = await staffRes.json();
 
-     setDoctors(docs);
-    
-    } else {
-        console.error("Failed to load doctors:", result.message);
+      if (usersResult.success && staffResult.success) {
+        // 1. Get only the Users who are Doctors
+        const doctorUsers = usersResult.data.filter(
+          (u: any) => u.role === "Doctor",
+        );
+
+        // 2. Map through them and attach their Staff details
+        const docs = doctorUsers.map((user: any) => {
+          // Find their matching Staff profile by name or email
+          const staffProfile = staffResult.data.find(
+            (s: any) => s.name === user.name || s.email === user.email,
+          );
+
+          return {
+            _id: user._id || user.id, // The exact User ID the backend Patient model wants
+            name: user.name,
+            role: user.role,
+            specialty: staffProfile?.specialty || "General", // Pulled from Staff
+            department: staffProfile?.department || "Medicine", // Pulled from Staff
+          };
+        });
+
+        setDoctors(docs);
+      } else {
+        console.error("Failed to load doctor data.");
       }
     } catch (err) {
       console.error("Network error fetching doctors", err);
@@ -629,9 +643,9 @@ const AdminPatients = () => {
     }
   };
 
-  const handleDelete = async (mrn: string) => {
+  const handleDelete = async (id: string) => {
     try {
-      const res = await apiFetch(`/api/patients/${mrn}`, {
+      const res = await apiFetch(`/api/patients/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {

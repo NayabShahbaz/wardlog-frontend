@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HiOutlineUser, HiOutlineLockClosed } from "react-icons/hi2";
 import { apiFetch } from "../utils/api";
+import { useNotifications } from "./notifications/NotificationsContext";
 
 const roles = ["Admin", "Doctor", "Nurse"];
 
@@ -12,6 +13,7 @@ const roleRoutes: Record<string, string> = {
 };
 
 const LoginPage = () => {
+  const { refetch } = useNotifications();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,13 +54,14 @@ const LoginPage = () => {
 
       // Redirect to specific dashboard based on server-verified role
       const route = roleRoutes[data.data.user.role];
+      refetch();
       if (route) {
         navigate(route);
       } else {
         setError("Unauthorized role access detected.");
         setIsLoading(false);
       }
-    } catch (err) {
+    } catch {
       setError("Server connection failed. Please check your network.");
       setIsLoading(false);
     }

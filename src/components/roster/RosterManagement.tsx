@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { type UserContextType } from "../layout/DoctorLayout";
@@ -18,89 +19,102 @@ const RosterManagement = () => {
   const [swapOpen, setSwapOpen] = useState(false);
   const [schedule, setSchedule] = useState<DayScheduleData[]>([]);
   const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([]);
-  const [staffOptions, setStaffOptions] = useState<{ label: string; value: string }[]>([]);
+  const [staffOptions, setStaffOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Data Fetching (Member 2 Responsibility) ──────────────────
- // ── Data Fetching (Member 2 Responsibility) ──────────────────
   const fetchRosterData = async () => {
     try {
       setLoading(true);
       const [rosterRes, swapRes, staffRes] = await Promise.all([
         apiFetch("/api/roster"),
-        apiFetch("/api/swap-requests"), // <--- 1. Fixed the URL here!
-        apiFetch("/api/staff")
+        apiFetch("/api/swap-requests"),
+        apiFetch("/api/staff"),
       ]);
 
       const rosterData = await rosterRes.json();
       const swapData = await swapRes.json();
       const staffData = await staffRes.json();
 
+      console.log(swapData.data); // Debugging line to inspect swap request data
+      // 1. First, process staff into a lookup map and update options
+      const rawStaffList = staffData.data || [];
+      const staffLookup: Record<string, string> = {};
+
+      rawStaffList.forEach((s: any) => {
+        const id = String(s._id || s.id).trim();
+        staffLookup[id] = s.name;
+      });
+
+      if (staffData.success) {
+        setStaffOptions(
+          rawStaffList
+            .filter(
+              (s: any) =>
+                s.role?.toLowerCase() !== "admin" && s.name !== userName,
+            )
+            .map((s: any) => ({
+              label: `${s.name} (${s.role})`,
+              value: String(s._id || s.id).trim(),
+            })),
+        );
+      }
+
+      // 2. Process Roster (Existing logic)
       if (rosterData.success) {
-        // 2. Reshape the data so DaySchedule and My Shifts can read it!
         const reshapedData = rosterData.data.map((day: any) => ({
           date: new Date(day.date).toLocaleDateString(),
-          morning: day.shifts.filter((s: any) => s.shift === 'Morning'),
-          afternoon: day.shifts.filter((s: any) => s.shift === 'Evening'), // Maps Backend 'Evening' to Frontend 'afternoon'
-          night: day.shifts.filter((s: any) => s.shift === 'Night')
+          morning: day.shifts.filter((s: any) => s.shift === "Morning"),
+          afternoon: day.shifts.filter((s: any) => s.shift === "Evening"),
+          night: day.shifts.filter((s: any) => s.shift === "Night"),
         }));
         setSchedule(reshapedData);
       }
 
-// ── THE FIX: Safely unpack objects before React renders them ──
-     
+      // 3. Process Swaps using the staffLookup map
       if (swapData.success) {
         const safeSwaps = swapData.data.map((req: any) => {
           const cleanDate = req.requestedDate
             ? new Date(req.requestedDate).toLocaleDateString()
             : "N/A";
 
-          // 2. Cross-reference the database ID with our downloaded roster data
+          // Clean Shift Logic
           let cleanShift = req.shift;
-          
           if (typeof req.shift === "object") {
             cleanShift = req.shift?.shift || "Unknown Shift";
-          } else if (typeof req.shift === "string") {
-            // If it's exactly 24 characters (a MongoDB ID from the seed script)
-            if (req.shift.length === 24 && !req.shift.includes(" ")) {
-              
-              // Search through the raw rosterData we fetched a few lines above
-              let matchedShiftStr = null;
-              for (const day of rosterData.data) {
-                const matchedShift = day.shifts.find((s: any) => s._id === req.shift);
-                
-                if (matchedShift) {
-                  const niceDate = new Date(day.date).toLocaleDateString();
-                  // Combine them to look exactly like the UI strings!
-                  matchedShiftStr = `${niceDate} - ${matchedShift.shift}`;
-                  break;
-                }
+          } else if (typeof req.shift === "string" && req.shift.length === 24) {
+            for (const day of rosterData.data) {
+              const matched = day.shifts.find(
+                (s: any) => String(s._id) === String(req.shift),
+              );
+              if (matched) {
+                cleanShift = `${new Date(day.date).toLocaleDateString()} - ${matched.shift}`;
+                break;
               }
-              cleanShift = matchedShiftStr || "Unknown Seeded Shift";
-              
-            } 
-            // If it came from the frontend UI (e.g., "3/12/2026|Morning")
-            else if (req.shift.includes("|")) {
-              cleanShift = req.shift.replace("|", " - ");
             }
+          }
+
+          // FIX: Reliable SwapWith Name Resolution
+          let displayName = "Unknown Staff";
+          if (req.swapWith && typeof req.swapWith === "object") {
+            displayName =
+              req.swapWith.name || req.swapWith.userName || "Unknown";
+          } else if (req.swapWith) {
+            const sid = String(req.swapWith).trim();
+            displayName = staffLookup[sid] || `Staff (${sid.slice(-4)})`;
           }
 
           return {
             ...req,
             id: req._id || req.id,
-            swapWith: typeof req.swapWith === "object" ? req.swapWith?.name : req.swapWith,
+            swapWith: displayName,
             shift: cleanShift,
-            requestedDate: cleanDate, 
+            requestedDate: cleanDate,
             status: req.status ? req.status.toLowerCase() : "pending",
           };
         });
         setSwapRequests(safeSwaps);
-      }
-      if (staffData.success) {
-        setStaffOptions(staffData.data.map((s: any) => ({
-          label: `${s.name} (${s.role})`,
-          value: s.name,
-        })));
       }
     } catch (err) {
       console.error("Failed to fetch roster data:", err);
@@ -108,6 +122,7 @@ const RosterManagement = () => {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchRosterData();
   }, []);
@@ -115,16 +130,28 @@ const RosterManagement = () => {
   // ── Derived State ─────────────────────────────────────────────
   const myActualShifts = schedule.flatMap((day) => {
     const allShifts = [
-      ...day.morning.map((s) => ({ ...s, shift: "Morning", date: day.date })),
-      ...day.afternoon.map((s) => ({ ...s, shift: "Afternoon", date: day.date })),
-      ...day.night.map((s) => ({ ...s, shift: "Night", date: day.date })),
+      ...day.morning.map((s: any) => ({
+        ...s,
+        shift: "Morning",
+        date: day.date,
+      })),
+      ...day.afternoon.map((s: any) => ({
+        ...s,
+        shift: "Afternoon",
+        date: day.date,
+      })),
+      ...day.night.map((s: any) => ({ ...s, shift: "Night", date: day.date })),
     ];
-    return allShifts.filter((s) => s.name === userName);
+    // ── FIX: Check BOTH name and staffName to avoid empty arrays ──
+    return allShifts.filter(
+      (s) => s.name === userName || s.staffName === userName,
+    );
   });
 
-  const shiftOptions = myActualShifts.map((s) => ({
+  const shiftOptions = myActualShifts.map((s: any) => ({
     label: `${s.date} - ${s.shift} (${s.ward})`,
-    value: `${s.date}|${s.shift}`,
+    // ── FIX: Use the actual MongoDB shift _id so the backend can find it ──
+    value: s._id || s.id || `${s.date}|${s.shift}`,
   }));
 
   const tabs = [
@@ -135,8 +162,14 @@ const RosterManagement = () => {
 
   // ── Handlers ──────────────────────────────────────────────────
   const handleSwapSubmit = async (data: Omit<SwapRequest, "id" | "status">) => {
+    console.log(
+      "Submitting swap request with data:",
+      data,
+      "and userName:",
+      userName,
+    );
     try {
-      const res = await apiFetch("/api/roster/swap-requests", {
+      const res = await apiFetch("/api/swap-requests", {
         method: "POST",
         body: JSON.stringify({
           ...data,
@@ -147,13 +180,18 @@ const RosterManagement = () => {
       if (res.ok && result.success) {
         await fetchRosterData(); // Refresh list to show new request
         setSwapOpen(false);
+      } else {
+        alert(result.message || "Failed to submit swap request.");
       }
     } catch (err) {
       console.error("Error submitting swap request:", err);
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading roster...</div>;
+  if (loading)
+    return (
+      <div className="p-8 text-center text-gray-500">Loading roster...</div>
+    );
 
   return (
     <>
@@ -162,9 +200,13 @@ const RosterManagement = () => {
         <div>
           <div className="flex items-center gap-2">
             <HiOutlineCalendarDays className="w-6 h-6 text-gray-900" />
-            <h1 className="text-2xl font-bold text-gray-900">Roster Management</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Roster Management
+            </h1>
           </div>
-          <p className="text-sm text-gray-500 mt-1">Manage shift schedules and swap requests</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Manage shift schedules and swap requests
+          </p>
         </div>
         <button
           onClick={() => setSwapOpen(true)}
@@ -185,7 +227,9 @@ const RosterManagement = () => {
           {schedule.length > 0 ? (
             schedule.map((day) => <DaySchedule key={day.date} day={day} />)
           ) : (
-            <div className="text-center py-12 text-gray-400">No schedule available</div>
+            <div className="text-center py-12 text-gray-400">
+              No schedule available
+            </div>
           )}
         </div>
       )}
@@ -200,14 +244,18 @@ const RosterManagement = () => {
                 className="bg-white rounded-xl p-4 flex items-center justify-between border border-gray-200"
               >
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{shift.date}</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {shift.date}
+                  </p>
                   <p className="text-xs text-gray-500">{shift.ward}</p>
                 </div>
                 <Badge text={shift.shift} variant="dark" />
               </div>
             ))
           ) : (
-            <div className="text-center py-12 text-sm text-gray-400">No shifts assigned</div>
+            <div className="text-center py-12 text-sm text-gray-400">
+              No shifts assigned
+            </div>
           )}
         </div>
       )}
@@ -233,7 +281,11 @@ const RosterManagement = () => {
                   <Badge
                     text={req.status}
                     variant={
-                      req.status === "approved" ? "green" : req.status === "rejected" ? "red" : "outline"
+                      req.status === "approved"
+                        ? "green"
+                        : req.status === "rejected"
+                          ? "red"
+                          : "outline"
                     }
                   />
                 </div>
@@ -241,7 +293,9 @@ const RosterManagement = () => {
               </div>
             ))
           ) : (
-            <div className="text-center py-12 text-sm text-gray-400">No swap requests</div>
+            <div className="text-center py-12 text-sm text-gray-400">
+              No swap requests
+            </div>
           )}
         </div>
       )}
