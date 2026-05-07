@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { type UserContextType } from "../layout/DoctorLayout";
@@ -9,15 +10,17 @@ import {
   HiOutlineCheckCircle,
   HiOutlineClipboard,
 } from "react-icons/hi2";
-import TaskCard, { type Task } from "./TaskCard";
-import { apiFetch } from "../../utils/api"; 
+import TaskCard from "./TaskCard";
+import { apiFetch } from "../../utils/api";
 
 type TaskPriority = "high" | "medium" | "low";
 
 export default function TaskPage() {
-  const [tasks, setTasks] = useState<any[]>([]); 
-  const [staffOptions, setStaffOptions] = useState<{ label: string; value: string }[]>([]);
-  
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [staffOptions, setStaffOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +51,7 @@ export default function TaskPage() {
         const formattedTasks = result.data.map((t: any) => ({
           ...t,
           id: t._id,
-          // DEFENSIVE FIX: Forces status to lowercase in case backend sends "Completed"
-          status: t.status ? t.status.toLowerCase() : "pending", 
+          status: t.status ? t.status.toLowerCase() : "pending",
           assignedTo: t.assignedTo?.name || t.assignedTo,
           _rawAssignedToId: t.assignedTo?._id || t.assignedTo,
         }));
@@ -62,22 +64,37 @@ export default function TaskPage() {
 
   const fetchStaff = async () => {
     try {
-      const res = await apiFetch("/api/staff");
-      const result = await res.json();
-      if (result.success) {
-        setStaffOptions(result.data.map((s: any) => ({
+      const [nurseRes, doctorRes] = await Promise.all([
+        apiFetch("/api/users?role=Nurse"),
+        apiFetch("/api/users?role=Doctor"),
+      ]);
+      const nurseData = await nurseRes.json();
+      const doctorData = await doctorRes.json();
+
+      const combined = [
+        ...(nurseData.success ? nurseData.data : []),
+        ...(doctorData.success ? doctorData.data : []),
+      ];
+
+      console.log("Combined staff (should be only Nurse/Doctor):", combined);
+
+      setStaffOptions(
+        combined.map((s: any) => ({
           label: `${s.name} (${s.role})`,
-          value: s._id
-        })));
-      }
+          value: s._id,
+        })),
+      );
     } catch (err) {
-      console.error("Failed to fetch staff:", err);
+      console.error("Failed to fetch users:", err);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
-    if (!isNurse) fetchStaff(); 
+    const init = async () => {
+      await fetchTasks();
+      if (!isNurse) await fetchStaff();
+    };
+    init();
   }, [isNurse]);
 
   const myNurseTasks = tasks.filter((t) => t.assignedTo === userName);
@@ -116,7 +133,9 @@ export default function TaskPage() {
   // ── FIX: Complete Task with Alerts ──
   const handleCompleteTask = async (taskId: string) => {
     try {
-      const res = await apiFetch(`/api/tasks/${taskId}/complete`, { method: "PUT" });
+      const res = await apiFetch(`/api/tasks/${taskId}/complete`, {
+        method: "PUT",
+      });
       if (res.ok) {
         await fetchTasks();
       } else {
@@ -133,7 +152,9 @@ export default function TaskPage() {
   const handleDeleteTask = async () => {
     if (deleteConfirm) {
       try {
-        const res = await apiFetch(`/api/tasks/${deleteConfirm}`, { method: "DELETE" });
+        const res = await apiFetch(`/api/tasks/${deleteConfirm}`, {
+          method: "DELETE",
+        });
         if (res.ok) {
           await fetchTasks();
           setDeleteConfirm(null);
@@ -151,13 +172,18 @@ export default function TaskPage() {
       assignedTo: task._rawAssignedToId || task.assignedTo,
       type: task.type,
       priority: task.priority,
-      content: task.description, 
+      content: task.description,
     });
     setIsModalOpen(true);
   };
 
   const handleCreateTask = async () => {
-    if (!formData.title.trim() || !formData.content.trim() || !formData.assignedTo || !formData.type) {
+    if (
+      !formData.title.trim() ||
+      !formData.content.trim() ||
+      !formData.assignedTo ||
+      !formData.type
+    ) {
       setError("Please fill in all required fields marked with *");
       return;
     }
@@ -165,12 +191,12 @@ export default function TaskPage() {
     try {
       const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
       const method = editingTask ? "PUT" : "POST";
-      
+
       const res = await apiFetch(url, {
         method: method,
         body: JSON.stringify({
           title: formData.title,
-          description: formData.content, 
+          description: formData.content,
           assignedTo: formData.assignedTo,
           type: formData.type,
           priority: formData.priority,
@@ -182,12 +208,19 @@ export default function TaskPage() {
         setIsModalOpen(false);
         setEditingTask(null);
         setError(null);
-        setFormData({ title: "", assignedTo: "", type: "", priority: "medium", content: "" });
+        setFormData({
+          title: "",
+          assignedTo: "",
+          type: "",
+          priority: "medium",
+          content: "",
+        });
       } else {
         const result = await res.json();
         setError(result.message || "Failed to save task.");
       }
     } catch (err) {
+      console.error("Error saving task:", err);
       setError("Server error while saving task.");
     }
   };
@@ -210,7 +243,13 @@ export default function TaskPage() {
           <button
             onClick={() => {
               setEditingTask(null);
-              setFormData({ title: "", assignedTo: "", type: "", priority: "medium", content: "" });
+              setFormData({
+                title: "",
+                assignedTo: "",
+                type: "",
+                priority: "medium",
+                content: "",
+              });
               setIsModalOpen(true);
             }}
             className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1a5276] text-white rounded-lg text-sm font-semibold hover:bg-[#154360] active:scale-[0.98] transition-all shadow-sm w-full sm:w-auto"
@@ -258,15 +297,15 @@ export default function TaskPage() {
         />
       </div>
 
-     <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {filtered.length > 0 ? (
           filtered.map((task) => {
             const isOwn = task.assignedTo === currentUser.name;
-            
+
             // THE FIX:
             // 1. If user is a Nurse, they can NEVER manage (edit/delete).
             // 2. If user is a Doctor, they can manage EXCEPT on the "All Tasks" tab (index 2).
-            const manage = !isNurse && !isOwn; 
+            const manage = !isNurse && !isOwn;
 
             return (
               <TaskCard
@@ -338,7 +377,7 @@ export default function TaskPage() {
                 setError(null);
               }}
               required
-              options={staffOptions} 
+              options={staffOptions}
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <SelectField
