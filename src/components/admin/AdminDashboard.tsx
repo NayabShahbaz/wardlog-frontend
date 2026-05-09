@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import {
@@ -81,40 +82,42 @@ const AdminDashboard = () => {
       setLoading(true);
       try {
         // Correctly define all 5 response variables here
-        const [staffRes, swapRes, noticeRes, patientRes, statsRes] = await Promise.all([
-          apiFetch("/api/staff"),
-          apiFetch("/api/swap-requests"),
-          apiFetch("/api/notices"),
-          apiFetch("/api/patients"),
-          apiFetch("/api/admin/dashboard") // Member 2's endpoint
-        ]);
+        const [staffRes, swapRes, noticeRes, patientRes, statsRes] =
+          await Promise.all([
+            apiFetch("/api/staff"),
+            apiFetch("/api/swap-requests"),
+            apiFetch("/api/notices"),
+            apiFetch("/api/patients"),
+            apiFetch("/api/admin/dashboard"), // Member 2's endpoint
+          ]);
 
         // statsRes is now defined, so .json() will no longer error[cite: 31]
-        const [staffData, swapData, noticeData, patientData, statsData] = 
-        await Promise.all([
-          staffRes.json(), 
-          swapRes.json(), 
-          noticeRes.json(), 
-          patientRes.json(), 
-          statsRes.json()
-        ]);
+        const [staffData, swapData, noticeData, patientData, statsData] =
+          await Promise.all([
+            staffRes.json(),
+            swapRes.json(),
+            noticeRes.json(),
+            patientRes.json(),
+            statsRes.json(),
+          ]);
 
         if (staffData.success) setStaff(staffData.data);
         if (swapData.success) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const normalizedSwaps = swapData.data.map((req: any) => ({
             ...req,
             // 1. Force the database's capital "Pending" to lowercase so the filters work
             status: req.status ? req.status.toLowerCase() : "pending",
-    
+
             // 2. Safely extract the role from the populated User object
-            requesterRole: req.requester?.role || "Staff" 
+            requesterRole: req.requester?.role || "Staff",
           }));
           setSwapRequests(normalizedSwaps);
         }
         if (noticeData.success) setNotices(noticeData.data);
         if (patientData.success) setPatients(patientData.data);
         // Map the backend data to your stats state
-        if (statsData.success) setStats(statsData.data); 
+        if (statsData.success) setStats(statsData.data);
       } catch (err) {
         console.error("Admin dashboard fetch error:", err);
       } finally {
@@ -138,11 +141,11 @@ const AdminDashboard = () => {
     return req.requester?.name ?? "Unknown";
   };
 
-const statCards = [
+  const statCards = [
     {
       label: "Total Staff",
       // stats.totalStaff is provided by Member 2's dashboard API[cite: 30, 31]
-      value: stats.totalStaff.toString(),      
+      value: stats.totalStaff.toString(),
       sub: `${doctors.length} doctors, ${nurses.length} nurses, ${admins.length} admin`,
       color: "bg-blue-100",
       iconColor: "text-blue-600",
@@ -151,7 +154,7 @@ const statCards = [
     {
       label: "Active Wards", // Changed from "Active Patients" to match Member 2's API
       // Fixed the typo "activePa" to "activeWards"
-      value: stats.activeWards.toString(), 
+      value: stats.activeWards.toString(),
       sub: "Hospital operational units",
       color: "bg-green-100",
       iconColor: "text-green-600",
@@ -211,7 +214,7 @@ const statCards = [
           onClick={() => navigate("/admin/roster")}
         >
           <SectionCard title="Pending Approvals" icon={HiOutlineUserPlus}>
-            <div className="min-h-[210px]">
+            <div className="min-h-52.5">
               {pendingSwaps.length > 0 ? (
                 <div className="space-y-3">
                   {pendingSwaps.slice(0, 3).map((req) => (
@@ -244,7 +247,7 @@ const statCards = [
           onClick={() => navigate("/admin/noticeboard")}
         >
           <SectionCard title="Recent Notices" icon={HiOutlineBell}>
-            <div className="min-h-[210px]">
+            <div className="min-h-52.5">
               {notices.length > 0 ? (
                 <div className="space-y-3">
                   {notices.slice(0, 3).map((notice) => (
@@ -284,7 +287,7 @@ const statCards = [
             title="Staff Directory"
             icon={HiOutlineClipboardDocumentList}
           >
-            <div className="min-h-[280px]">
+            <div className="min-h-70">
               {staff.length > 0 ? (
                 <div className="space-y-3">
                   {staff.slice(0, 4).map((member) => (
@@ -321,15 +324,15 @@ const statCards = [
 
         {/* Quick Actions */}
         <SectionCard title="Quick Actions" icon={HiOutlineCog6Tooth}>
-          <div className="min-h-[210px] space-y-3">
+          <div className="min-h-52.5 space-y-3">
             <button
               onClick={() => navigate("/admin/patients")}
               className="w-full flex items-center justify-center gap-2 py-3 bg-[#1a5276] text-white rounded-xl text-sm font-bold hover:bg-[#154360] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineUsers className="w-5 h-5" /> Manage Patients
             </button>
-           <button
-              onClick={() => navigate("/admin/staff-directory")} 
+            <button
+              onClick={() => navigate("/admin/staff-directory")}
               className="w-full flex items-center justify-center gap-2 py-3 bg-[#22c55e] text-white rounded-xl text-sm font-bold hover:bg-[#16a34a] shadow-md active:scale-[0.98] transition-all"
             >
               <HiOutlineUserGroup className="w-5 h-5" /> Staff Directory

@@ -795,13 +795,23 @@ const AdminRoster = () => {
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
                     <button
                       onClick={() => handleApprove(req.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                      style={{
+                        borderWidth: "1px",
+                        borderStyle: "solid",
+                        borderColor: "#bbf7d0",
+                      }}
                     >
                       <HiOutlineCheckCircle className="w-4 h-4" /> Approve
                     </button>
                     <button
                       onClick={() => handleReject(req.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                      style={{
+                        borderWidth: "1px",
+                        borderStyle: "solid",
+                        borderColor: "#fecaca",
+                      }}
                     >
                       <HiOutlineXCircle className="w-4 h-4" /> Reject
                     </button>
