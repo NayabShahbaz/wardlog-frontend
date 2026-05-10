@@ -3,7 +3,7 @@
 // On 401 (expired token, invalid signature, missing auth), logs out and redirects.
 
 // Base URL configuration - typically updated for Member 2's backend environment[cite: 11]
-const API_BASE = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 /**
  * Standard logout utility for the application infrastructure.
@@ -12,7 +12,7 @@ const API_BASE = "http://localhost:5000";
 export const logout = (): void => {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
-  
+
   // Use replace so the back button doesn't return to a protected page.
   // We check if we're already on /login to prevent infinite redirect loops.
   if (window.location.pathname !== "/login") {
@@ -29,10 +29,10 @@ export const isTokenExpired = (token: string | null): boolean => {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return true; // Check for malformed JWT
-    
+
     const payload = JSON.parse(atob(parts[1]));
     if (!payload.exp) return false; // No expiry set = treat as valid
-    
+
     // exp is in seconds, Date.now() is in ms
     return payload.exp * 1000 < Date.now();
   } catch {
