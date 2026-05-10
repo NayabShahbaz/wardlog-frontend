@@ -3,6 +3,7 @@
 // On 401 (expired token, invalid signature, missing auth), logs out and redirects.
 
 // Base URL configuration - typically updated for Member 2's backend environment[cite: 11]
+console.log("API Base URL:", import.meta.env.VITE_API_URL);
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 /**
